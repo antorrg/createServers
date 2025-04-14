@@ -428,7 +428,7 @@ class MiddlewareHandler {
 export default MiddlewareHandler
 EOL
 # Crear el archivo repository.js en src/Repositories
-cat > "$PROJECT_DIR/src/repositories/repositories.js" <<EOL
+cat > "$PROJECT_DIR/src/Repositories/repositories.js" <<EOL
 const repositories = (model, model2 = null) => {
   return {
     async create (data) {
@@ -499,7 +499,7 @@ const repositories = (model, model2 = null) => {
 export default repositories
 EOL
 # Crear el archivo getFilterRepository.js en src/repositories
-cat > "$PROJECT_DIR/src/repositories/getFilterRepository.js" <<EOL
+cat > "$PROJECT_DIR/src/Repositories/getFilterRepository.js" <<EOL
 const getFilterRepository = async (model, queryObject) => {
   const { field, value } = queryObject
   return await model.findMany({
