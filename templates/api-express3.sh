@@ -2618,6 +2618,19 @@ echo "Estructura de la aplicación Express creada en '$PROJECT_DIR'."
 cd $PROJECT_DIR
 
 # Instalar dependencias
+spinner() {
+  local pid=$!
+  local spin='|/-\'
+  local i=0
+  tput civis  # Oculta el cursor
+  while kill -0 $pid 2>/dev/null; do
+    i=$(( (i+1) %4 ))
+    printf "\rInstalando dependencias... %s" "${spin:$i:1}"
+    sleep 0.2
+  done
+  printf "\rInstalando dependencias... ✔️\n"
+  tput cnorm  # Muestra el cursor
+}
 echo "Instalando dependencias:..."
 npm install cross-env@latest cors@latest dotenv@latest express@latest helmet@latest morgan@latest sequelize sequelize-cli uuid@latest pg pg-hstore
 echo "Instalando dependencias de desarrollo, aguarde un momento..."

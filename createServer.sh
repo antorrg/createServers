@@ -34,14 +34,33 @@ formatear_nombre_package() {
 PROYECTO_VALIDO=$(validar_nombre_proyecto "$PROYECTO")
 PROYECTO_PACKAGE=$(formatear_nombre_package "$PROYECTO_VALIDO")
 
+echo "¿Con que lenguaje quiere trabajar?"
+echo "1) JavaScript"
+echo "2) TypeScript"
+read lenguaje
+
+case $lenguaje in
+  1)
+    LENGUAJE="js"
+    ;;
+  2)
+    LENGUAJE="ts"
+    ;;
+  *)
+    echo "Opción no válida. Se usará JavaScript por defecto."
+    LENGUAJE="js"
+    ;;
+esac
+if [ "$LENGUAJE" = "js" ]; then
 
 echo "Seleccione el tipo de API:"
 echo "1) Express.js API Basica (solo CRUD)"
 echo "2) Express.js con Prisma "
 echo "3) Express.js con Sequelize (Postgres)"
-echo "4) Express.js con Sequelize (Postgres) Paradigma funcional"
-echo "5) Fastify.js con Prisma"
-echo "6) Otro (próximamente)"
+echo "4) Express.js con Mongoose"
+echo "5) Express.js con Sequelize (Postgres) Paradigma funcional"
+echo "6) Fastify.js con Prisma"
+echo "7) Otro (próximamente)"
 read opcion
 
 TEMPLATES_DIR="./templates"  # Ruta a los templates
@@ -57,15 +76,34 @@ case $opcion in
     source "$TEMPLATES_DIR/api-express3.sh" "$PROYECTO_VALIDO"
     ;;
   4)
-    source "$TEMPLATES_DIR/api-express-seqFunction.sh" "$PROYECTO_VALIDO"
+    source "$TEMPLATES_DIR/api-express-mongoose.sh" "$PROYECTO_VALIDO"
     ;;
   5)
-    source "$TEMPLATES_DIR/api-fastify-prisma.sh" "$PROYECTO_VALIDO"
+    source "$TEMPLATES_DIR/api-express-seqFunction.sh" "$PROYECTO_VALIDO"
     ;;
   6)
+    source "$TEMPLATES_DIR/api-fastify-prisma.sh" "$PROYECTO_VALIDO"
+    ;;
+  7)
     echo "Opción aún no implementada."
     ;;
   *)
     echo "Opción no válida."
     ;;
 esac
+
+else
+echo "1) Express.ts con Mongoose"
+echo "2)  Express.ts con Sequelize (Postgres)"
+echo "3) Otro (próximamente)"
+read opcion
+
+TEMPLATES_DIR="./templates"  # Ruta a los templates
+
+case $opcion in
+    1) source "$TEMPLATES_DIR/api-express-ts-mongoose.sh" "$PROYECTO_VALIDO" ;;
+    2) source "$TEMPLATES_DIR/api-express-ts-seqFunction.sh" "$PROYECTO_VALIDO" ;;
+    3) echo "Opción aún no implementada." ;;
+    *) echo "Opción no válida." ;;
+  esac
+fi
