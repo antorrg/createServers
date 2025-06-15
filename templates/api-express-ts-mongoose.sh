@@ -5,7 +5,7 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 # Crear la estructura del proyecto
 mkdir -p "$PROJECT_DIR"
 
-mkdir -p $PROJECT_DIR/src/{Configs,@types,Shared,Shared/Middlewares,Shared/Middlewares/testHelpers,Shared/Controllers,Shared/Auth,Shared/Auth/testHelpers,Shared/Services,Shared/Services/testHelpers,Shared/Models,Shared/Swagger,Shared/Swagger/schemas,Shared/Swagger/schemas/tools,Shared/Swagger/schemas/components,Features,Features/user,Features/product,Features/user/testHelpers}
+mkdir -p $PROJECT_DIR/src/{Configs,@types,Shared,Shared/Middlewares,Shared/Middlewares/testHelpers,Shared/Controllers,Shared/Auth,Shared/Auth/testHelpers,Shared/Services,Shared/Repositories,Shared/Repositories/testHelpers,Shared/Models,Shared/Swagger,Shared/Swagger/schemas,Shared/Swagger/schemas/tools,Shared/Swagger/schemas/components,Features,Features/user,Features/product,Features/user/testHelpers,Features/userSeed}
 mkdir -p $PROJECT_DIR/test/testHelpers
 
 # Crear el archivo index.ts en src
@@ -13,10 +13,12 @@ cat > "$PROJECT_DIR/index.ts" <<EOL
 import app from './src/app.js'
 import connectDB from './src/Configs/database.js'
 import envConfig from './src/Configs/envConfig.js'
+import { userSeed } from './src/Features/userSeed/userSeed.js'
 
-app.listen(envConfig.Port, async() => {
+app.listen(envConfig.Port, async () => {
   try {
     await connectDB()
+    await userSeed()
     console.log(\`Server is listening on port \${envConfig.Port}\nServer in \${envConfig.Status}\`)
     if(envConfig.Status === 'development'){
       console.log(\`Swagger: Vea y pruebe los endpoints en http://localhost:\${envConfig.Port}/api-docs\`)
@@ -823,195 +825,123 @@ export class BaseController<T extends Document> {
   })
 }
 EOL
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Crear el servicio
 cat > "$PROJECT_DIR/src/Shared/Services/BaseService.ts" <<EOL
-import { Model, Document, FilterQuery } from 'mongoose'
-import eh from '../../Configs/errorHandlers.js'
+import { Document } from 'mongoose'
+import { BaseRepository } from '../Repositories/BaseRepository.js'
 import { deletFunctionTrue } from '../../../test/generalFunctions.js'
-import { infoClean } from './testHelpers/testHelp.help.js'
-
-interface Pagination {
-  page?: number
-  limit?: number
-  filters?: Record<string, any>
-}
-
-interface ResponseWithPagination<T> {
-  message: string
-  results: T[]
-  info: {
-    totalPages: number
-    total: number
-    page: number
-    limit: number
-    count: number
-  }
-}
 
 type ParserFunction<T> = (doc: T) => any
 
 export class BaseService<T extends Document> {
-  protected readonly model: Model<T>
+  protected readonly repository: BaseRepository<T>
   protected readonly useImages: boolean
-  protected readonly deleteImages?: typeof deletFunctionTrue | undefined
+  protected readonly deleteImages?: typeof deletFunctionTrue
   protected readonly parserFunction?: ParserFunction<T>
-  protected readonly modelName?: string
-  protected readonly whereField?: keyof T
 
   constructor (
-    model: Model<T>,
+    repository: BaseRepository<T>,
     useImages = false,
     deleteImages?: typeof deletFunctionTrue,
-    parserFunction?: ParserFunction<T>,
-    modelName?: string,
-    whereField?: keyof T
+    parserFunction?: ParserFunction<T>
   ) {
-    this.model = model
+    this.repository = repository
     this.useImages = useImages
     this.deleteImages = deleteImages
     this.parserFunction = parserFunction
-    this.modelName = modelName
-    this.whereField = whereField
   }
 
-  async getAll (): Promise<{ message: string, results: any[] }> {
-    const docs = await this.model.find()
-    if (docs == null) {
-      eh.throwError(\`\${this.modelName} not found\`, 404)
-    }
+  async getAll () {
+    const res = await this.repository.getAll()
     return {
-      message: \`\${this.modelName} retrieved\`,
-      results: (this.parserFunction != null) ? docs.map(doc => this.parserFunction!(doc)) : docs
+      ...res,
+      results: (this.parserFunction != null) ? res.results.map(this.parserFunction) : res.results
     }
   }
 
-  async findWithPagination (query: Pagination & { sort?: Record<string, 1 | -1> }): Promise<ResponseWithPagination<T>> {
-    const page = query.page ?? 1
-    const limit = query.limit ?? 10
-    const skip = (page - 1) * limit
-
-    // const filters = (query.filters != null) || {}
-    const filters = (query.filters != null) && typeof query.filters === 'object' ? query.filters : {}
-    const sort = (query.sort != null) && typeof query.sort === 'object' ? query.sort : {}
-    const total = await this.model.countDocuments(filters)
-    const docs = await this.model.find(filters).sort(sort).skip(skip).limit(limit)
-    const totalPages = Math.ceil(total / limit)
-
-    const parsed = (this.parserFunction != null)
-      ? docs.map(doc => this.parserFunction!(doc))
-      : docs
-
+  async findWithPagination (query: any) {
+    const res = await this.repository.findWithPagination(query)
     return {
-      message: \`\${this.modelName} list retrieved\`,
-      results: parsed,
-      info: {
-        total,
-        page,
-        totalPages,
-        limit,
-        count: parsed.length
+      ...res,
+      results: (this.parserFunction != null) ? res.results.map(this.parserFunction) : res.results
+    }
+  }
+
+  async getById (id: string) {
+    const res = await this.repository.getById(id)
+    return {
+      ...res,
+      results: (this.parserFunction != null) ? this.parserFunction(res.results) : res.results
+    }
+  }
+
+  async getOne<K extends keyof T>(value: T[K], field: K) {
+    const res = await this.repository.getOne(value, field)
+    return {
+      ...res,
+      results: (this.parserFunction != null) ? this.parserFunction(res.results) : res.results
+    }
+  }
+
+  async create (data: Partial<T>) {
+    const res = await this.repository.create(data)
+    return {
+      ...res,
+      results: (this.parserFunction != null) ? this.parserFunction(res.results) : res.results
+    }
+  }
+
+  async update (id: string, data: Partial<T>) {
+    // Si usas imágenes, puedes obtener el doc anterior para borrar la imagen si es necesario
+    if (this.useImages && (this.deleteImages != null)) {
+      const prev = await this.repository.getById(id)
+      if ((prev.results as any).picture && (data as any).picture && (prev.results as any).picture !== (data as any).picture) {
+        await this.deleteImages((prev.results as any).picture)
       }
     }
-  }
-
-  async getOne (id: string): Promise<{ message: string, results: any }> {
-    const doc = await this.model.findById(id)
-    if (doc == null) {
-      eh.throwError(\`\${this.modelName} not found\`, 404)
-    }
+    const res = await this.repository.update(id, data)
     return {
-      message: \`\${this.modelName} retrieved\`,
-      results: (this.parserFunction != null) ? this.parserFunction(doc!) : doc
+      ...res,
+      results: (this.parserFunction != null) ? this.parserFunction(res.results) : res.results
     }
   }
 
-  async create (data: Partial<T>): Promise<{ message: string, results: any }> {
-    const field = this.whereField as string
-    if (field && !(data as Record<string, any>)[field]) {
-      eh.throwError(\`Missing field '\${field}' for uniqueness check\`, 400)
-    }
-
-    if (field) {
-      const exists = await this.model.findOne({ [field]: (data as Record<string, any>)[field] } as FilterQuery<T>)
-      if (exists != null) {
-        eh.throwError(\`This \${field} already exists\`, 400)
+  async delete (id: string) {
+    if (this.useImages && (this.deleteImages != null)) {
+      const prev = await this.repository.getById(id)
+      if ((prev.results as any).picture) {
+        await this.deleteImages((prev.results as any).picture)
       }
     }
-
-    const newDoc = await this.model.create(data)
-    const identifier = field && (data as Record<string, any>)[field] ? \`\${(data as Record<string, any>)[field]} \` : ''
-    return {
-      message: \`$\{this.modelName} \${identifier}created successfully\`,
-      results: (this.parserFunction != null) ? this.parserFunction(newDoc) : newDoc
-    }
-  }
-
-  async update (id: string, data: Partial<T>): Promise<{ message: string, results: any }> {
-    const doc = await this.model.findById(id)
-    if (doc == null) {
-      eh.throwError(\`\${this.modelName} not found\`, 404)
-    }
-
-    const updated = await this.model.findByIdAndUpdate(id, data, { new: true })
-    if (updated == null) {
-      eh.throwError(\`\${this.modelName} not found\`, 404)
-    }
-
-    if (this.useImages && (this.deleteImages != null) && (doc != null)) {
-      if ((doc.toObject() as any).picture !== (data as any).picture) {
-        const imageUrl = (doc.toObject() as any).picture
-        await this.deleteImages(imageUrl)
-      }
-    }
-
-    return {
-      message: \`\${this.modelName} updated successfully\`,
-      results: (this.parserFunction != null) ? this.parserFunction(updated!) : updated
-    }
-  }
-
-  async delete (id: string): Promise<{ message: string }> {
-    const doc = await this.model.findById(id)
-    if (doc == null) {
-      eh.throwError(\`\${this.modelName} not found\`, 404)
-    }
-
-    if (this.useImages && (this.deleteImages != null) && (doc != null)) {
-      const imageUrl = (doc.toObject() as any).picture
-      await this.deleteImages(imageUrl)
-    }
-
-    await this.model.findByIdAndDelete(id)
-
-    return {
-      message: \`\${this.modelName} deleted successfully\`
-    }
+    return await this.repository.delete(id)
   }
 }
 EOL
 # Crear el  test para el Servicio 
 cat > "$PROJECT_DIR/src/Shared/Services/BaseService.test.ts" <<EOL
+import {BaseRepository} from '../Repositories/BaseRepository.js'
 import { BaseService } from './BaseService.js'
-import Test from '../../../test/testHelpers/modelTest.help.js'
-import { infoClean, resultParsedCreate, newData } from './testHelpers/testHelp.help.js'
+import Test, {ITest} from '../../../test/testHelpers/modelTest.help.js'
+import { infoClean, resultParsedCreate, newData } from '../Repositories/testHelpers/testHelp.help.js'
 import { setStringId, getStringId } from '../../../test/testHelpers/testStore.help.js'
 import mongoose from 'mongoose'
 import { deletFunctionTrue, deletFunctionFalse } from '../../../test/generalFunctions.js'
-import { testSeeds } from './testHelpers/seeds.help.js'
+import { testSeeds } from '../Repositories/testHelpers/seeds.help.js'
 import { resetDatabase } from '../../../test/jest.setup.js'
 
-/* constructor (
-    model: Model<T>,
-    useImages = false,
-    deleteImages?: typeof mockDeleteFunction,
-    parserFunction?: ParserFunction<T>,
-    modelName?: string,
-    whereField?: keyof T
+/* 
+    constructor(
+      repository: BaseRepository<T>,
+      useImages = false,
+      deleteImages?: typeof deletFunctionTrue,
+      parserFunction?: ParserFunction<T>
   ) */
-// model, useImages, deleteImages, parserFunction
-const testImsSuccess = new BaseService(Test, true, deletFunctionTrue, infoClean, 'Test', 'title')
-const testImgFailed = new BaseService(Test, true, deletFunctionFalse, infoClean, 'Test', 'title')
-const testParsed = new BaseService(Test, false, deletFunctionFalse, infoClean, 'Test', 'title')
+
+const repository = new BaseRepository<ITest>(Test, 'Test', 'title')
+const testImsSuccess = new BaseService<ITest>(repository, true, deletFunctionTrue, infoClean)
+const testImgFailed = new BaseService<ITest>(repository, true, deletFunctionFalse, infoClean)
+const testParsed = new BaseService<ITest>(repository, false, deletFunctionFalse, infoClean)
 
 describe('Unit tests for the BaseService class: CRUD operations.', () => {
   afterAll(async () => {
@@ -1022,8 +952,7 @@ describe('Unit tests for the BaseService class: CRUD operations.', () => {
       const element = { title: 'page', count: 5, picture: 'https//pepe.com' }
       const response = await testParsed.create(element)
       setStringId(response.results.id)
-      expect(response.message).toBe('Test page created successfully')
-      // expect(response.results instanceof mongoose.Model).toBe(true);
+      expect(response.message).toBe('Test created successfully')
       expect(response.results).toEqual(resultParsedCreate)
     })
     it('should throw an error when attempting to create the same item twice (error handling)', async () => {
@@ -1040,7 +969,7 @@ describe('Unit tests for the BaseService class: CRUD operations.', () => {
         ) {
           expect((error as { status: number }).status).toBe(400)
           expect(error).toBeInstanceOf(Error)
-          expect((error as { message: string }).message).toBe('This title already exists')
+          expect((error as { message: string }).message).toBe('This Test already exists')
         } else {
           throw error // Re-lanza si no es el tipo esperado
         }
@@ -1079,13 +1008,13 @@ describe('Unit tests for the BaseService class: CRUD operations.', () => {
 
     it('"getOne" method: should return an service', async () => {
       const id = getStringId()
-      const response = await testParsed.getOne(id)
+      const response = await testParsed.getById(id)
       expect(response.results).toEqual(resultParsedCreate)
     })
     it('"getOne" should throw an error if service not exists', async () => {
       try {
         const invalidId = new mongoose.Types.ObjectId().toString()
-        await testParsed.getOne(invalidId)
+        await testParsed.getById(invalidId)
         throw new Error('❌ Expected a "Not found" error, but none was thrown')
       } catch (error: unknown) {
         if (
@@ -1173,8 +1102,268 @@ describe('Unit tests for the BaseService class: CRUD operations.', () => {
   })
 })
 EOL
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Crear BaseRepositories.ts
+cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.ts" <<EOL
+import { Model, Document, FilterQuery } from 'mongoose'
+import eh from '../../Configs/errorHandlers.js'
+
+interface Pagination {
+  page?: number
+  limit?: number
+  filters?: Record<string, any>
+}
+interface ResponseWithPagination<T> {
+  message: string
+  results: T[]
+  info: {
+    totalPages: number
+    total: number
+    page: number
+    limit: number
+    count: number
+  }
+}
+
+export class BaseRepository <T extends Document> {
+  protected readonly model: Model<T>
+  protected readonly modelName?: string
+  protected readonly whereField?: string
+  constructor (
+    model: Model<T>,
+    modelName?: string,
+    whereField?: string
+  ) {
+    this.model = model
+    this.modelName = modelName
+    this.whereField = whereField
+  }
+
+  async getAll (): Promise< { message: string, results: T[] } > {
+    const docs = await this.model.find()
+    if (docs == null) {
+      eh.throwError(\`\${this.modelName} not found\`, 404)
+    }
+    return {
+      message: \`\${this.modelName} retrieved\`,
+      results: docs
+    }
+  }
+
+  async findWithPagination (query: Pagination & { sort?: Record<string, 1 | -1> }): Promise<ResponseWithPagination<T>> {
+    const page = query.page ?? 1
+    const limit = query.limit ?? 10
+    const skip = (page - 1) * limit
+
+    // const filters = (query.filters != null) || {}
+    const filters = (query.filters != null) && typeof query.filters === 'object' ? query.filters : {}
+    const sort = (query.sort != null) && typeof query.sort === 'object' ? query.sort : {}
+    const total = await this.model.countDocuments(filters)
+    const docs = await this.model.find(filters).sort(sort).skip(skip).limit(limit)
+    const totalPages = Math.ceil(total / limit)
+
+    return {
+      message: \`\${this.modelName} list retrieved\`,
+      results: docs,
+      info: {
+        total,
+        page,
+        totalPages,
+        limit,
+        count: docs.length
+      }
+    }
+  }
+
+  async getById (id: string): Promise<{ message: string, results: T }> {
+    const doc = await this.model.findById(id)
+    if (doc == null) {
+      eh.throwError(\`\${this.modelName} not found\`, 404)
+    }
+    return {
+      message: \`\${this.modelName} retrieved\`,
+      results: doc as T
+    }
+  }
+
+  async getOne<K extends keyof T> (value: T[K], field?: K): Promise<{ message: string, results: T }> {
+    const fieldSearch = field ?? this.whereField
+    if (!fieldSearch) {
+      throw new Error('No field specified for search')
+    }
+    const doc = await this.model.findOne({ [fieldSearch]: value } as FilterQuery<T>)
+    if (doc == null) {
+      eh.throwError(\`This \${this.modelName} not found\`, 404)
+    }
+    return {
+      message: \`\${this.modelName} retrieved\`,
+      results: doc as T
+    }
+  }
+
+  async create (data: Partial<T>): Promise<{ message: string, results: T }> {
+    if (!this.whereField) {
+      throw new Error('No field specified for search')
+    }
+    if (!(this.whereField in data)) { // Permite valores falsy válidos (como 0 o '')
+      throw new Error(\`Missing value for field "\${String(this.whereField)}" in data\`)
+    }
+    const fieldValue = data[this.whereField as keyof T]
+    const doc = await this.model.findOne({ [this.whereField]: fieldValue } as FilterQuery<T>)
+    if (doc != null) {
+      eh.throwError(\`This \${this.modelName} already exists\`, 400)
+    }
+
+    const newDoc = await this.model.create(data)
+
+    return {
+      message: \`\${this.modelName} created successfully\`,
+      results: newDoc as T
+    }
+  }
+
+  async update (id: string, data: Partial<T>): Promise<{ message: string, results: T }> {
+    const updated = await this.model.findByIdAndUpdate(id, data, { new: true })
+    if (updated == null) {
+      eh.throwError(\`\${this.modelName} not found\`, 404)
+    }
+
+    return {
+      message: \`\${this.modelName} updated successfully\`,
+      results: updated as T
+    }
+  }
+
+  async delete (id: string): Promise<{ message: string }> {
+    await this.model.findByIdAndDelete(id)
+
+    return {
+      message: \`\${this.modelName} deleted successfully\`
+    }
+  }
+}
+EOL
+# Crear BaseRepository.test.ts
+cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.test.ts" <<EOL
+import { BaseRepository } from './BaseRepository.js'
+import Test, {ITest} from '../../../test/testHelpers/modelTest.help.js'
+import { infoClean, resultParsedCreate, newData } from './testHelpers/testHelp.help.js'
+import { setStringId, getStringId } from '../../../test/testHelpers/testStore.help.js'
+import mongoose from 'mongoose'
+import { testSeeds } from './testHelpers/seeds.help.js'
+import { resetDatabase } from '../../../test/jest.setup.js'
+
+/* constructor (
+    model: Model<T>,
+    useImages = false,
+    deleteImages?: typeof mockDeleteFunction,
+    parserFunction?: ParserFunction<T>,
+    modelName?: string,
+    whereField?: keyof T
+  ) */
+
+const test = new BaseRepository<ITest>(Test, 'Test', 'title')
+describe('Unit tests for the BaseRepository class: CRUD operations.', () => {
+  afterAll(async () => {
+    await resetDatabase()
+  })
+  describe('The "create" method for creating a service', () => {
+    it('should create an item with the correct parameters', async () => {
+      const element = { title: 'page', count: 5, picture: 'https//pepe.com' }
+      const response = await test.create(element)
+      setStringId(response.results.id)
+      expect(response.message).toBe('Test created successfully')
+      // expect(response.results instanceof mongoose.Model).toBe(true);
+      expect(infoClean(response.results)).toEqual(resultParsedCreate)
+    })
+  })
+  describe('"GET" methods. Return one or multiple services..', () => {
+    beforeAll(async () => {
+      await Test.insertMany(testSeeds)
+    })
+    it('"getAll" method: should return an array of services', async () => {
+      const response = await test.getAll()
+      expect(response.message).toBe('Test retrieved')
+      expect(response.results.length).toBe(26)
+    })
+    it('"findWithPagination" method: should return an array of services', async () => {
+      const queryObject = { page: 1, limit: 10, filters: {}, sort: {} }
+      const response = await test.findWithPagination(queryObject)
+      expect(response.message).toBe('Test list retrieved')
+      expect(response.info).toEqual({ page: 1, limit: 10, totalPages: 3, count: 10, total: 26 })
+      expect(response.results.length).toBe(10)
+    })
+    it('"findWithPagination" method should return page 2 of results', async () => {
+      const queryObject = { page: 2, limit: 10, filters: {}, sort: {} }
+      const response = await test.findWithPagination(queryObject)
+      expect(response.results.length).toBeLessThanOrEqual(10)
+      expect(response.info.page).toBe(2)
+    })
+    it('"findWithPagination" method should return sorted results (by title desc)', async () => {
+      const queryObject = { page: 1, limit: 5, sort: { title: -1 } as Record<string, 1 | -1> }
+      const response = await test.findWithPagination(queryObject)
+      const titles = response.results.map(r => r.title)
+      const sortedTitles = [...titles].sort().reverse()
+      expect(titles).toEqual(sortedTitles)
+    })
+
+    it('"getById" method: should return an service', async () => {
+      const id = getStringId()
+      const response = await test.getById(id)
+      expect(infoClean(response.results)).toEqual(resultParsedCreate)
+    })
+    it('"getOne" method: should return an service', async () => {
+       const title= 'page'
+      const response = await test.getOne(title)
+      expect(infoClean(response.results)).toMatchObject(resultParsedCreate)
+    })
+  })
+  describe('The "update" method - Handles removal of old images from storage.', () => {
+    it('should update the document without removing any images', async () => {
+      const id = getStringId()
+      const data = newData
+      const response = await test.update(id, data)
+      expect(response.message).toBe('Test updated successfully')
+      expect(response.results).toMatchObject({
+        id: expect.any(String) as string,
+        title: 'page',
+        picture: 'https://donJose.com',
+        count: 5,
+        enabled: true
+      })
+    })
+    
+  })
+  describe('The "delete" method.', () => {
+    it('should delete a document successfully (soft delete)', async () => {
+      const id = getStringId()
+      const response = await test.delete(id)
+      expect(response.message).toBe('Test deleted successfully')
+    })
+    it('should throw an error if document do not exist', async () => {
+      const id = getStringId()
+      try {
+        await test.delete(id)
+      } catch (error: unknown) {
+        if (
+          typeof error === 'object' &&
+          error !== null &&
+          'status' in error &&
+          'message' in error
+        ) {
+          expect(error).toBeInstanceOf(Error)
+          expect((error as { status: number }).status).toBe(404)
+          expect((error as { message: string }).message).toBe('Test not found')
+        } else {
+          throw error
+        }
+      }
+    })
+  })
+})
+EOL
 # Crear testHelp.help.ts
-cat > "$PROJECT_DIR/src/Shared/Services/testHelpers/testHelp.test.ts" <<EOL
+cat > "$PROJECT_DIR/src/Shared/Repositories/testHelpers/testHelp.test.ts" <<EOL
 import { Types } from 'mongoose'
 import { ITest } from '../../../../test/testHelpers/modelTest.help.js'
 
@@ -1224,7 +1413,7 @@ export const responseNewData: ParsedInfo = {
 }
 EOL
 # Crear testHelp.help.ts
-cat > "$PROJECT_DIR/src/Shared/Services/testHelpers/seeds.test.ts" <<EOL
+cat > "$PROJECT_DIR/src/Shared/Repositories/testHelpers/seeds.test.ts" <<EOL
 export interface Seeds {
   title: string
   count: number
@@ -1260,6 +1449,8 @@ export const testSeeds: Seeds[] = [
   { title: 'feedback', count: 20, picture: 'https://feedback.com/img24', enabled: false }
 ]
 EOL
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 #Crear el middleware
 cat > "$PROJECT_DIR/src/Shared/Middlewares/MiddlewareHandler.ts" <<EOL
 import { validate as uuidValidate } from 'uuid'
@@ -2066,7 +2257,7 @@ cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/user.jsdoc.ts" <<EOL
 * @swagger
 * '/api/v1/user/create':
 *   post:
-*     summary: Crear un nuevo user
+*     summary: Crear un nuevo usuario
 *     security:
 *       - bearerAuth: []
 *     tags: [Users]
@@ -2083,12 +2274,12 @@ cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/user.jsdoc.ts" <<EOL
 *             email:
 *               type: string
 *               format: email
-*               example: email ejemplo
+*               example: bartolomiau@gmail.com
 *               description: Descripción de email
 *             password:
 *               type: string
-*               example: password ejemplo
-*               description: Descripción de password
+*               example: D12345678
+*               description: Debe tener por lo menos 8 caracteres 1 número y una mayúscula.
 *     responses:
 *       201:
 *         description: Creación exitosa
@@ -2124,12 +2315,15 @@ cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/user.jsdoc.ts" <<EOL
 *             email:
 *               type: string
 *               format: email
-*               example: email ejemplo
-*               description: Descripción de email
+*               example: bartolomiau@gmail.com
+*               description: debe tener por lo menos 1 @ y ser un email valido
 *             password:
 *               type: string
-*               example: password ejemplo
-*               description: Descripción de password
+*               example: D12345678
+*               description: Debe tener por lo menos 8 caracteres 1 número y una mayúscula.
+*           example:
+*             email: bartolomiau@gmail.com
+*             password: D12345678
 *     responses:
 *       200:
 *         description: Login successfully
@@ -2146,10 +2340,10 @@ cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/user.jsdoc.ts" <<EOL
 *                   type: object
 *                   properties:
 *                     user:
-*                       \$ref: '#/components/schemas/User'   
+*                       \$ref: '#/components/schemas/User'
 *                     token:
 *                       type: string
- */
+*/
 
 /**
 * @swagger
@@ -2245,7 +2439,7 @@ cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/user.jsdoc.ts" <<EOL
 * @swagger
 * '/api/v1/user/{id}':
 *   delete:
-*     summary: Eliminar un user
+*     summary: Eliminar un usuario
 *     security:
 *       - bearerAuth: []
 *     tags: [Users]
@@ -2260,8 +2454,9 @@ cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/user.jsdoc.ts" <<EOL
 *       200:
 *         description: Eliminado correctamente
 *       404:
-*         description: user no encontrado
- */
+*         description: usuario no encontrado
+*/
+
 EOL
 # Crear archivo json para user
 cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/components/user.schema.json" <<EOL
@@ -2274,15 +2469,15 @@ cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/components/user.schema.json" <<EO
       },
       "email": {
         "type": "string",
-        "example": "useremail@example.com"
+        "example": "usuarioadmin@hotmail.com"
       },
       "password": {
         "type": "string",
-        "example": "L1234567"
+        "example": "D12345678"
       },
       "nickname": {
         "type": "string",
-        "example": "useremail"
+        "example": "usuarioadmin"
       },
       "picture": {
         "type": "string",
@@ -2302,7 +2497,7 @@ cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/components/user.schema.json" <<EO
       },
       "role": {
         "type": "string",
-        "example": "User"
+        "example": "Admin"
       },
       "enabled": {
         "type": "boolean",
@@ -2839,10 +3034,68 @@ import app from '../src/app.js'
 import session from 'supertest'
 import { resetDatabase } from './jest.setup.js'
 const agent = session(app)
+import { setTokens } from './testHelpers/validationHelper.help.js'
+import {getAdminToken, setAdminToken} from './testHelpers/testStore.help.js'
 
 describe('Integration test. Route Tests: "User"', () => {
   afterAll(async () => {
     await resetDatabase()
+  })
+  describe('Login method', () => {
+        it('should authenticate the user and return a message, user data, and a token', async () => {
+          await setTokens()
+          const data = { email:'josenomeacuerdo@hotmail.com', password:'L1234567'}
+          const response = await agent
+                  .post('/api/v1/user/login')
+                  .send(data)
+                  .expect('Content-Type', /json/)
+                  .expect(200);
+          expect(response.body.success).toBe(true)
+          expect(response.body.message).toBe('Login successfully')
+          expect(response.body.results.user).toMatchObject({
+          id: expect.any(String) as string,
+          email: 'josenomeacuerdo@hotmail.com',
+          nickname: 'josenomeacuerdo',
+          picture: 'https://urlimageprueba.net',
+          name: '',
+          surname: '',
+          country: '',
+          role: 'User',
+          isVerify: false,
+          isRoot: true,
+          enabled: true
+        })
+          expect(response.body.results.token).toBeDefined()
+          expect(typeof response.body.results.token).toBe('string')
+          expect(response.body.results.token).not.toBe('')
+          setAdminToken(response.body.results.token)
+        })
+        it('"should throw an error in correct format if the password is incorrect"', async () => {
+    
+          const data = { email:'josenomeacuerdo@hotmail.com', password:'L123458867'}
+          const response = await agent
+                  .post('/api/v1/user/login')
+                  .send(data)
+                  .expect('Content-Type', /json/)
+                  .expect(400);
+          expect(response.body.success).toBe(false)
+          expect(response.body.message).toBe('Invalid password')
+          expect(response.body.data).toBe(null)
+    
+        })
+        it('"should throw an error in correct format if the password is invalid (error middleware)"', async () => {
+    
+          const data = { email:'josenomeacuerdo@hotmail.com', password:'L123'}
+          const response = await agent
+                  .post('/api/v1/user/login')
+                  .send(data)
+                  .expect('Content-Type', /json/)
+                  .expect(400);
+          expect(response.body.success).toBe(false)
+          expect(response.body.message).toBe('Invalid password format! Enter a valid password')
+          expect(response.body.data).toBe(null)
+    
+        })
   })
   describe('Create method', () => {
     it('should create an user with the correct parameters', async () => {
@@ -2850,9 +3103,10 @@ describe('Integration test. Route Tests: "User"', () => {
       const response = await agent
         .post('/api/v1/user/create')
         .send(data)
+        .set('Authorization', \`Bearer \${getAdminToken()}\`)
         .expect('Content-Type', /json/)
         .expect(201)
-      expect(response.body.message).toBe('User josenomeacuerdo@gmail.com created successfully')
+      expect(response.body.message).toBe('User created successfully')
       expect(response.body.results).toMatchObject({
         id: expect.any(String),
         email: 'josenomeacuerdo@gmail.com',
@@ -2872,14 +3126,13 @@ describe('Integration test. Route Tests: "User"', () => {
       const response = await agent
         .post('/api/v1/user/create')
         .send(data)
+        .set('Authorization', \`Bearer \${getAdminToken()}\`)
         .expect('Content-Type', /json/)
         .expect(400)
-      console.log('que paso: ', response.body)
       expect(response.body).toEqual({ data: null, message: 'This email already exists', success: false })
     })
   })
 })
-
 EOL
 #Crear archivo de ayudas para test
 cat > "$PROJECT_DIR/test/generalFunctions.ts" <<EOL
@@ -2981,31 +3234,29 @@ import { Auth } from '../../Shared/Auth/auth.js'
 import { User, IUser } from '../../Shared/Models/userModel.js'
 import { UserDto } from './userDto.js'
 import envConfig from '../../Configs/envConfig.js'
+import { BaseRepository } from '../../Shared/Repositories/BaseRepository.js'
+
+interface loginResponse { user: any, token: string }
+
+const userRepository = new BaseRepository<IUser>(User, 'User', 'email')
 
 export class UserService extends BaseService<IUser> {
   constructor () {
     super(
-      User, // El modelo de Mongoose
-      false, // useImages (ajusta según tu caso)
-      undefined, // deleteImages (ajusta según tu caso)
-      UserDto.infoClean, // parserFunction (ajusta según tu caso)
-      'User', // modelName
-      'email' // whereField (ajusta según tu caso)
+      userRepository,
+      false, // useImages
+      undefined, // deleteImages
+      UserDto.infoClean // parserFunction
     )
   }
 
   async create (data: { email: string, password: string, role?: number, isRoot?: boolean }): Promise<{ message: string, results: any }> {
-    const field = this.whereField as string
-    if (field && !(data as Record<string, any>)[field]) {
-      throwError(\`Missing field '\${field}' for uniqueness check\`, 400)
+    // Verifica unicidad usando el repositorio
+    const exists = await this.repository.getOne(data.email, 'email').catch(() => null)
+    if ((exists != null) && exists.results) {
+      throwError('This email already exists', 400)
     }
 
-    if (field) {
-      const exists = await this.model.findOne({ [field]: (data as Record<string, any>)[field] })
-      if (exists != null) {
-        throwError(\`This \${field} already exists\`, 400)
-      }
-    }
     const newData: Partial<IUser> = {
       email: data.email,
       password: await bcrypt.hash(data.password, 12),
@@ -3014,20 +3265,20 @@ export class UserService extends BaseService<IUser> {
       role: data.role || 1,
       isRoot: data.isRoot || false
     }
-    const newDoc = await this.model.create(newData)
-    const identifier = field && (data as Record<string, any>)[field] ? \`\${(data as Record<string, any>)[field]} \` : ''
+    const res = await this.repository.create(newData)
     return {
-      message: \`\${this.modelName} \${identifier}created successfully\`,
-      results: (this.parserFunction != null) ? this.parserFunction(newDoc) : newDoc
+      ...res,
+      results: (this.parserFunction != null) ? this.parserFunction(res.results) : res.results
     }
   }
 
-  async login (data: { email: string, password: string }) {
-    const { email, password } = data
-    const userFound = await this.model.findOne({ email })
+  async login (data: { email: string, password: string }): Promise<{ message: string, results: loginResponse }> {
+    // Busca el usuario usando el repositorio
+    const userRes = await this.repository.getOne(data.email, 'email').catch(() => null)
+    const userFound = userRes?.results
     if (userFound == null) { throwError('User not found', 404) }
     const hash: string | null = userFound!.password
-    const passwordMatch = await bcrypt.compare(password, hash)
+    const passwordMatch = await bcrypt.compare(data.password, hash)
     if (!passwordMatch) { throwError('Invalid password', 400) }
     if (!userFound!.enabled) { throwError('User is blocked', 400) }
     const token = Auth.generateToken({
@@ -3037,8 +3288,9 @@ export class UserService extends BaseService<IUser> {
     })
     return {
       message: 'Login successfully',
-      results:{user: (this.parserFunction != null) ? this.parserFunction(userFound!) : userFound,
-      token : Auth.generateToken((userFound as any))
+      results: {
+        user: (this.parserFunction != null) ? this.parserFunction(userFound!) : userFound,
+        token
       }
     }
   }
@@ -3097,10 +3349,10 @@ describe('Unit tests for the BaseService class: CRUD operations.', () => {
       const data = { email: 'usuario@ejemplo.com', password: 'L1234567' }
       const response = await test.login(data)
       expect(response.message).toBe('Login successfully')
-      expect(response.results).toMatchObject(userCreated)
-      expect(response.token).toBeDefined()
-      expect(typeof response.token).toBe('string')
-      expect(response.token).not.toBe('')
+      expect(response.results.user).toMatchObject(userCreated)
+      expect(response.results.token).toBeDefined()
+      expect(typeof response.results.token).toBe('string')
+      expect(response.results.token).not.toBe('')
     })
     it('"should throw an error if the password is incorrect"', async () => {
       const dataUser = { email: 'usuario@ejemplo.com', password: 'L1234567dididi' }
@@ -3363,6 +3615,30 @@ export const userRootCreated = {
   isRoot: true,
   enabled: true
 }
+EOL
+# Crear el seed de Usuarios
+cat > "$PROJECT_DIR/src/Features/userSeed/userSeed.ts" <<EOL
+import { userService } from "../user/user.route.js";
+
+export const admin = {email:'usuarioadmin@hotmail.com', password:'L1234567', role: 9, isRoot: true, }
+
+export const user = {email:'bartolomiau@gmail.com', password:'L1234567', role: 1, isRoot: false}
+
+export const userSeed = async () => {
+    try {
+        // Crear los usuarios si no existen
+        const seed  = await userService.getAll()
+        if(seed.results.length > 0){
+            console.log('Users already exists')
+            return
+        }
+        await Promise.all([userService.create(admin), userService.create(user)]);
+        console.log('Users created successfully!')
+    } catch (error) {
+        console.error('Error creating users: ', error);
+        throw error;
+    }
+};
 EOL
 
 # Crear el archivo jest.config.ts
@@ -3650,9 +3926,13 @@ Se requieren dos bases de datos: una para desarrollo y otra para test.
 
 ### Documentación y rutas:
 
-Esta api cuenta con documentación por medio de Swagger, al inicializar la app en modo dev aparecerá el endpoint adonde se verán los endpoints declarados.
+Esta api cuenta con documentación por medio de Swagger, al inicializar la app en modo dev aparecerá el endpoint (link que se abre con el navegador) adonde se verán los endpoints declarados.
 
-Para declarar los endpoints simplemente se ejecuta el comando \`npm run gen:schema\`, y aparecerá en la consola un menú interactivo adonde podrá ingresar los items, campos, parametros y rutas.
+Suele darse el caso (como en el ejemplo dado en la app) que haya endpoints protegidos por token, en ese caso, en el endpoint \`user/login\` es necesario hacer login con los datos del usuario de ejemplo, luego en el resultado copiar el token resultante y pegarlo en la ventana que se abrirá al hacer click en \`authorize\`, seguir los pasos y automaticamente se podrá acceder a todos los endpoints protegidos de la app.
+
+Los endpoints se ordenan automaticamente por lo tanto, lo más probable es que los encuentre ordenados alfabeticamente.
+
+Para crear los endpoints simplemente se ejecuta el comando \`npm run gen:schema\`, y aparecerá en la consola un menú interactivo adonde podrá ingresar los items, campos, parametros y rutas.
 
 La documentación se escribe en \`jsdoc\`, asimismo se creará un archivo \`json\` con los parametros, el menú los guiará y automáticamente se añadiran a la documentación. Es posible que en los casos en que haya endpoints especiales como login y otros, haya que crearlos a mano en el mismo archivo, asi como también si se utilza o no protección con jwt, pero esta automatización garantiza que una gran parte del trabajo estará hecha y servirá de modelo a todo lo que haya que documentar.
 
