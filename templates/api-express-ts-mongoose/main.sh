@@ -4,7 +4,7 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SHAREDTS_DIR="$SCRIPT_DIR/../sharedTs"
-echo "$SCRIPT_DIR"
+
 # Crear la estructura del proyecto
 mkdir -p "$PROJECT_DIR"
 

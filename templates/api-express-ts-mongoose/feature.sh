@@ -91,7 +91,7 @@ describe('Unit tests for the BaseService class: CRUD operations.', () => {
       const dataUser = { email: 'usuario@ejemplo.com', password: 'L1234567' }
       const response = await test.create(dataUser)
       setStringId(response.results.id)
-      expect(response.message).toBe('User usuario@ejemplo.com created successfully')
+      expect(response.message).toBe('User created successfully')
       expect(response.results).toMatchObject(userCreated)
     })
     it('should throw an error when attempting to create the same user twice (error handling)', async () => {
@@ -117,7 +117,7 @@ describe('Unit tests for the BaseService class: CRUD operations.', () => {
     it('should create an root user with the correct parameters (super user)', async () => {
       const dataUser = { email: 'usuarioroot@ejemplo.com', password: 'L1234567', role: 3, isRoot: true }
       const response = await test.create(dataUser)
-      expect(response.message).toBe('User usuarioroot@ejemplo.com created successfully')
+      expect(response.message).toBe('User created successfully')
       expect(response.results).toMatchObject(userRootCreated)
     })
   })
@@ -290,7 +290,7 @@ import { MiddlewareHandler } from '../../Shared/Middlewares/MiddlewareHandler.js
 import { UserDto, create, update } from './userDto.js'
 import { Auth } from '../../Shared/Auth/auth.js'
 
-const userService = new UserService()
+export const userService = new UserService()
 const user = new UserController(userService)
 
 const password: RegExp = /^(?=.*[A-Z]).{8,}$/
@@ -318,12 +318,12 @@ userRouter.post(
   MiddlewareHandler.validateRegex(
     email,
     'email',
-    'Introduzca un mail valido'
+    'Enter a valid email'
   ),
   MiddlewareHandler.validateRegex(
     password,
     'password',
-    'Introduzca un password valido'
+    'Enter a valid password'
   ),
   user.create
 )
@@ -334,12 +334,12 @@ userRouter.post(
   MiddlewareHandler.validateRegex(
     email,
     'email',
-    'Introduzca un mail valido'
+    'Enter a valid email'
   ),
   MiddlewareHandler.validateRegex(
     password,
     'password',
-    'Introduzca un password valido'
+    'Enter a valid password'
   ),
   user.login
 )

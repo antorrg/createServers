@@ -137,7 +137,7 @@ describe('"Auth" class. Jsonwebtoken middlewares. Unit tests.', () => {
         const test = await agent
                 .post('/')
                 .send({user})
-                .set('Authorization', \`Bearer \{token}\`)
+                .set('Authorization', \`Bearer \${token}\`)
                 .expect(200);
                 expect(test.body.success).toBe(true)
                 expect(test.body.message).toBe('Passed middleware')

@@ -261,7 +261,7 @@ describe('Unit tests for the BaseRepository class: CRUD operations.', () => {
 })
 EOL
 # Crear testHelp.help.ts
-cat > "$PROJECT_DIR/src/Shared/Repositories/testHelpers/testHelp.test.ts" <<EOL
+cat > "$PROJECT_DIR/src/Shared/Repositories/testHelpers/testHelp.help.ts" <<EOL
 import { Types } from 'mongoose'
 import { ITest } from '../../../../test/testHelpers/modelTest.help.js'
 
@@ -311,7 +311,7 @@ export const responseNewData: ParsedInfo = {
 }
 EOL
 # Crear testHelp.help.ts
-cat > "$PROJECT_DIR/src/Shared/Repositories/testHelpers/seeds.test.ts" <<EOL
+cat > "$PROJECT_DIR/src/Shared/Repositories/testHelpers/seeds.help.ts" <<EOL
 export interface Seeds {
   title: string
   count: number

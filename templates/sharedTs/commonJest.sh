@@ -2,8 +2,8 @@
 
 PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO" 
 
-# Crear el archivo jest.config.ts
-cat > "$PROJECT_DIR/jest.config.ts" <<EOL
+# Crear el archivo jest.config.js
+cat > "$PROJECT_DIR/jest.config.js" <<'EOL'
 export default {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
@@ -67,7 +67,7 @@ EOL
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 # Crear el archivo testStore.test.ts
-cat > "$PROJECT_DIR/test/testHelpers/testStore.test.ts" <<EOL
+cat > "$PROJECT_DIR/test/testHelpers/testStore.help.ts" <<EOL
 let adminToken: string = ''
 let userToken: string = ''
 let storeId: string = ''

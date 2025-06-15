@@ -35,7 +35,7 @@ export function applyBaseSchema (schema: Schema): Schema {
 }
 EOL
 # Crear el modelo de Test
-cat > "$PROJECT_DIR/test/testHelpers/modelTest.ts" <<EOL
+cat > "$PROJECT_DIR/test/testHelpers/modelTest.help.ts" <<EOL
 import mongoose, { Schema, Document, Model } from 'mongoose'
 import { applyBaseSchema } from '../../src/Shared/Models/baseSchemaMixin.js'
 
