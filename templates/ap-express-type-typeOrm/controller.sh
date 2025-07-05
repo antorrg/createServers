@@ -5,11 +5,11 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 # Crear el controlador
 cat > "$PROJECT_DIR/src/Shared/Controllers/BaseController.ts" <<EOL
 import { Request, Response } from 'express'
-import { Document } from 'mongoose'
+import { ObjectLiteral } from 'typeorm'
 import { catchController } from '../../Configs/errorHandlers.js'
 import { BaseService } from '../Services/BaseService.js'
 
-export class BaseController<T extends Document> {
+export class BaseController<T extends ObjectLiteral> {
   protected service: BaseService<T>
 
   constructor (service: BaseService<T>) {
@@ -58,6 +58,11 @@ export class BaseController<T extends Document> {
   getById = catchController(async (req: Request, res: Response) => {
     const { id } = req.params
     const response = await this.service.getById(id)
+    return BaseController.responder(res, 200, true, response.message, response.results)
+  })
+  getOne = catchController(async (req: Request, res: Response) => {
+    const search: any = req.query
+    const response = await this.service.getOne(search)
     return BaseController.responder(res, 200, true, response.message, response.results)
   })
 

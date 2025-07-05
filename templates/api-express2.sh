@@ -2408,9 +2408,9 @@ cd $PROJECT_DIR
 
 # Instalar dependencias
 echo "Instalando dependencias:..."
-npm install cross-env@latest cors@latest dotenv@latest express@latest helmet@latest morgan@latest @prisma/client@latest prisma@latest uuid@latest
+#npm install cross-env@latest cors@latest dotenv@latest express@latest helmet@latest morgan@latest @prisma/client@latest prisma@latest uuid@latest
 echo "Instalando dependencias de desarrollo, aguarde un momento..."
-npm install @babel/core @babel/preset-env babel-jest nodemon@latest standard@latest supertest@latest jest@latest swagger-jsdoc swagger-ui-express -D
+#npm install @babel/core @babel/preset-env babel-jest nodemon@latest standard@latest supertest@latest jest@latest swagger-jsdoc swagger-ui-express -D
   
 echo "¡Tu aplicación Express está lista! 🚀"
 echo "Ejecuta 'cd $PROJECT_DIR && npm start o npm run dev' para iniciar el servidor."

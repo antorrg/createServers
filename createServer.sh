@@ -85,7 +85,7 @@ case $opcion in
     source "$TEMPLATES_DIR/api-fastify-prisma.sh" "$PROYECTO_VALIDO"
     ;;
   7)
-    echo "Opción aún no implementada."
+    source "$TEMPLATES_DIR/api-express-js-prisma/main.sh" "$PROYECTO_VALIDO"
     ;;
   *)
     echo "Opción no válida."
@@ -95,14 +95,14 @@ esac
 else
 echo "Seleccione el tipo de API:"
 echo "1) Express.ts con Mongoose"
-echo "2)  Express.ts con Sequelize (Postgres)"
+echo "2) Express.ts con TypeOrm (Postgres)"
 echo "3) Otro (próximamente)"
 read opcion
 
 TEMPLATES_DIR="./templates"  # Ruta a los templates
 
 case $opcion in
-    1) source "$TEMPLATES_DIR/api-express-ts-mongoose.sh" "$PROYECTO_VALIDO" ;;
+    1) source "$TEMPLATES_DIR/api-express-ts-mongoose/main.sh" "$PROYECTO_VALIDO" ;;
     2) source "$TEMPLATES_DIR/api-express-ts-mongoose/main.sh" "$PROYECTO_VALIDO" ;;
     3) source "$TEMPLATES_DIR/api-express-ts-mongoose/main.sh" "$PROYECTO_VALIDO" ;;
     4) echo "Opción aún no implementada." ;;
