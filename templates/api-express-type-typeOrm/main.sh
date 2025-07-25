@@ -8,7 +8,7 @@ SHAREDTS_DIR="$SCRIPT_DIR/../sharedTs"
 # Crear la estructura del proyecto
 mkdir -p "$PROJECT_DIR"
 
-mkdir -p $PROJECT_DIR/src/{Configs,@types,Shared,Shared/Middlewares,Shared/Middlewares/testHelpers,Shared/Controllers,Shared/Auth,Shared/Auth/testHelpers,Shared/Services,Shared/Repositories,Shared/Repositories/testHelpers,Shared/Entities,Shared/Swagger,Shared/Swagger/schemas,Shared/Swagger/schemas/tools,Shared/Swagger/schemas/components,Features,Features/user,Features/product,Features/user/testHelpers,Features/userSeed}
+mkdir -p $PROJECT_DIR/src/{Configs,@types,Shared,Shared/Middlewares,Shared/Middlewares/helpers,Shared/Middlewares/testHelpers,Shared/Controllers,Shared/Auth,Shared/Auth/testHelpers,Shared/Services,Shared/Repositories,Shared/Repositories/testHelpers,Shared/Entities,Shared/Swagger,Shared/Swagger/schemas,Shared/Swagger/schemas/tools,Shared/Swagger/schemas/components,Features,Features/user,Features/product,Features/user/testHelpers,Features/userSeed}
 mkdir -p $PROJECT_DIR/test/testHelpers
 
 source "$SHAREDTS_DIR/auth.sh" "$PROYECTO_VALIDO"
@@ -21,7 +21,7 @@ source "$SCRIPT_DIR/index.sh" "$PROYECTO_VALIDO"
 source "$SCRIPT_DIR/feature.sh" "$PROYECTO_VALIDO"
 source "$SCRIPT_DIR/jest.sh" "$PROYECTO_VALIDO"
 source "$SHAREDTS_DIR/commonJest.sh" "$PROYECTO_VALIDO"
-source "$SHAREDTS_DIR/middleware.sh" "$PROYECTO_VALIDO"
+source "$SHAREDTS_DIR/middleware/main.sh" "$PROYECTO_VALIDO"
 source "$SCRIPT_DIR/models.sh" "$PROYECTO_VALIDO"
 source "$SCRIPT_DIR/repository.sh" "$PROYECTO_VALIDO"
 source "$SHAREDTS_DIR/service.sh" "$PROYECTO_VALIDO"
@@ -41,9 +41,9 @@ cd $PROJECT_DIR
 
 # Instalar dependencias
 echo "Instalando dependencias:..."
-npm install bcrypt cors cross-env dotenv express jsonwebtoken morgan uuid typeorm reflect-metadata pg
+#npm install bcrypt cors cross-env dotenv express jsonwebtoken morgan uuid typeorm reflect-metadata pg
 echo "Instalando dependencias de desarrollo, aguarde un momento..."
-npm install -D typescript@5.8.3 @jest/globals @types/bcrypt @types/cors @types/dotenv @types/express @types/inquirer @types/jest @types/jsonwebtoken @types/mongoose @types/morgan @types/supertest @types/swagger-jsdoc @types/swagger-ui-express inquirer jest supertest swagger-jsdoc swagger-ui-express ts-jest ts-node ts-standard tsx
+#npm install -D typescript@5.8.3 @jest/globals @types/bcrypt @types/cors @types/dotenv @types/express @types/inquirer @types/jest @types/jsonwebtoken @types/mongoose @types/morgan @types/supertest @types/swagger-jsdoc @types/swagger-ui-express inquirer jest supertest swagger-jsdoc swagger-ui-express ts-jest ts-node ts-standard tsx
 echo "¡Tu aplicación Express está lista! 🚀"
 echo "Ejecuta 'cd $PROJECT_DIR && npm start o npm run dev' para iniciar el servidor."
 
