@@ -104,7 +104,7 @@ TEMPLATES_DIR="./templates"  # Ruta a los templates
 case $opcion in
     1) source "$TEMPLATES_DIR/api-express-ts-mongoose/main.sh" "$PROYECTO_VALIDO" ;;
     2) source "$TEMPLATES_DIR/api-express-ts-mongoose/main.sh" "$PROYECTO_VALIDO" ;;
-    3) source "$TEMPLATES_DIR/api-express-ts-mongoose/main.sh" "$PROYECTO_VALIDO" ;;
+    3) source "$TEMPLATES_DIR/api-express-type-typeOrm/main.sh" "$PROYECTO_VALIDO" ;;
     4) echo "Opción aún no implementada." ;;
     *) echo "Opción no válida." ;;
   esac

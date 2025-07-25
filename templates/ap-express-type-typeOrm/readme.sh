@@ -18,7 +18,8 @@ En esta plantilla encontrará ambos paradigmas funcionando codo a codo. A partir
 
 ### Instalaciones:
 
-La app viene con las instalaciones básicas para comenzar a trabajar con Mongoose y una base de datos MongoDb. Las variables de entorno vienen ya con un usuario por defecto (random) y una base de datos ficticia que en caso de ejecutarse se creará, usted deberia cambiar esto por su propia base de datos apropiada para cada entorno.
+La app viene con las instalaciones básicas para comenzar a trabajar con TypeOrm y base de datos posgres. Las variables de entorno vienen ya con un usuario por defecto (random) y una base de datos ficticia que en caso de ejecutarse se creará, usted deberia cambiar esto por su propia base de datos apropiada para cada entorno.
+
 
 ### Scripts disponibles:
 

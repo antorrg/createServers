@@ -15,6 +15,13 @@ interface FieldDefinition {
   type: FieldType
   default?: any
 }
+declare module 'express-serve-static-core' {
+  interface Request {
+    context?: {
+      query?: Record<string, any>
+    }
+  }
+}
 
 export class MiddlewareHandler {
   static middError = (message: string, status: number): Error & { statusCode?: number } => {
@@ -212,7 +219,9 @@ export class MiddlewareHandler {
           validatedQuery[name] = value
         })
 
-        ;(req as any).validatedQuery = validatedQuery
+       req.context = req.context || {}
+              req.context.query = validatedQuery
+              next()
         next()
       } catch (error: any) {
         return next(this.middError(error.message, 400))
