@@ -4,7 +4,7 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 
 #Crear el middleware
 cat > "$PROJECT_DIR/src/Shared/Middlewares/testHelpers/serverTest.help.ts" <<EOL
-import express, { type Request, type Response, type NextFunction } from 'express'
+import express, { Request, Response, NextFunction } from 'express'
 import { MiddlewareHandler } from '../MiddlewareHandler.js'
 import eh from '../../../Configs/errorHandlers.js'
 
@@ -76,7 +76,7 @@ serverTest.get(
       res.status(200).json({
         message: 'Passed middleware',
         data: req.query,
-        validData: (req as any).validatedQuery // si se agrega en el middleware, se puede extender `Request`
+        validData: (req as any).validatedQuery // si se agrega en el middleware, se puede extender \`Request\`
       })
     }
   ))

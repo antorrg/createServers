@@ -8,7 +8,7 @@ SHAREDTS_DIR="$SCRIPT_DIR/../sharedTs"
 # Crear la estructura del proyecto
 mkdir -p "$PROJECT_DIR"
 
-mkdir -p $PROJECT_DIR/src/{Configs,@types,Shared,Shared/Middlewares,Shared/Middlewares/testHelpers,Shared/Controllers,Shared/Auth,Shared/Auth/testHelpers,Shared/Services,Shared/Repositories,Shared/Repositories/testHelpers,Shared/Models,Shared/Swagger,Shared/Swagger/schemas,Shared/Swagger/schemas/tools,Shared/Swagger/schemas/components,Features,Features/user,Features/product,Features/user/testHelpers,Features/userSeed}
+mkdir -p $PROJECT_DIR/src/{Configs,@types,Shared,Shared/types,Shared/Middlewares,Shared/Middlewares/testHelpers,Shared/Controllers,Shared/Auth,Shared/Auth/testHelpers,Shared/Services,Shared/Repositories,Shared/Repositories/testHelpers,Shared/Models,Shared/Swagger,Shared/Swagger/schemas,Shared/Swagger/schemas/tools,Shared/Swagger/schemas/components,Features,Features/user,Features/product,Features/user/testHelpers,Features/userSeed}
 mkdir -p $PROJECT_DIR/test/testHelpers
 
 source "$SHAREDTS_DIR/auth.sh" "$PROYECTO_VALIDO"

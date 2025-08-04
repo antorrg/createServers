@@ -16,7 +16,8 @@ cat > "$PROJECT_DIR/package.json" <<EOL
     "unit:test": "cross-env NODE_ENV=test jest --detectOpenHandles",
     "lint": "standard",
     "lint:fix": "standard --fix",
-    "gen:schema": "node src/Shared/Swagger/schemas/tools/generateSchema.js"
+    "gen:schema": "node src/Shared/Swagger/schemas/tools/generateSchema.js",
+    "validate:schemas" : "node src/Shared/Middlewares/helpers/createSchema/index.js"
   },
   "dependencies": {
   },

@@ -5,14 +5,15 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 # Crear el controlador
 cat > "$PROJECT_DIR/src/Shared/Controllers/BaseController.ts" <<EOL
 import { Request, Response } from 'express'
-import { Document } from 'mongoose'
+import { IData } from '../types/common.js'
 import { catchController } from '../../Configs/errorHandlers.js'
 import { BaseService } from '../Services/BaseService.js'
+import parseSort from './parseSort.js'
 
-export class BaseController<T extends Document> {
-  protected service: BaseService<T>
+export class BaseController<U extends IData> {
+  protected service: BaseService<U>
 
-  constructor (service: BaseService<T>) {
+  constructor (service: BaseService<U>) {
     this.service = service
   }
 
@@ -32,17 +33,9 @@ export class BaseController<T extends Document> {
   })
 
   findWithPagination = catchController(async (req: Request, res: Response) => {
-    const { page, limit, sort, ...filters } = req.query
+    const { page, limit, sort, ...filters } = req?.context?.query
     // Parse sort: admite ?sort=title,-1 o ?sort=title:desc
-    const sortObj: Record<string, 1 | -1> = {}
-    if (typeof sort === 'string') {
-    // Ejemplo: sort=title,-1  o  sort=title:desc
-      const [field, order] = sort.includes(':') ? sort.split(':') : sort.split(',')
-      if (field && order) {
-        const ord = order === '-1' || order === 'desc' ? -1 : 1
-        sortObj[field] = ord
-      }
-    }
+    const sortObj= parseSort(sort as string)
     const response = await this.service.findWithPagination({
       page: Number(page),
       limit: Number(limit),

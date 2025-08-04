@@ -3,43 +3,37 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 
 # Crear el archivo jest.setup.ts
 cat > "$PROJECT_DIR/test/jest.setup.ts" <<EOL
-import mongoose from 'mongoose'
-import connectDB from '../src/Configs/database.js'
+import { AppDataSource } from '../src/Configs/dataSource.js'
 import { beforeAll, afterAll } from '@jest/globals'
 
-import Test from './testHelpers/modelTest.help.js'
-
-// Inicializa la base de datos de MongoDB antes de las pruebas
+// Inicializa la base de datos PostgreSQL antes de las pruebas
 async function initializeDatabase () {
   try {
-    await connectDB()
-    // Asegurarse de empezar en una BD vacía
-    await mongoose.connection.dropDatabase()
-    // Asegura que se creen los índices
-    // await Test.syncIndexes()
-    console.log('Índices sincronizados')
-    console.log('Base de datos MongoDB inicializada correctamente ✔️')
+    if (!AppDataSource.isInitialized) {
+      await AppDataSource.initialize()
+      console.log('Base de datos PostgreSQL inicializada correctamente ✔️')
+    }
+    // Limpia todas las tablas antes de empezar (opcional)
+    for (const entity of AppDataSource.entityMetadatas) {
+      const repository = AppDataSource.getRepository(entity.name)
+      await repository.clear()
+    }
+    console.log('Tablas limpiadas antes de las pruebas')
   } catch (error) {
-    console.error('Error inicializando DB MongoDB ❌', error)
+    console.error('Error inicializando DB PostgreSQL ❌', error)
   }
 }
 
 // Resetea la base de datos antes de cada prueba si es necesario
 export async function resetDatabase () {
   try {
-    if (mongoose.connection.db == null) {
-      throw new Error('La conexión a la base de datos no está lista')
+    for (const entity of AppDataSource.entityMetadatas) {
+      const repository = AppDataSource.getRepository(entity.name)
+      await repository.clear()
     }
-    const collections = await mongoose.connection.db.collections()
-    for (const coll of collections) {
-      const count = await coll.countDocuments()
-      console.log(\`🗃️ antes del reset: \${coll.collectionName}: \${count || 0} documentos\`)
-    }
-    await mongoose.connection.dropDatabase()
-    console.log(\`🔍 Total de colecciones después del drop: \${collections.length}\`)
-    console.log('Base de datos MongoDB reseteada ✔️')
+    console.log('Tablas reseteadas ✔️')
   } catch (error) {
-    console.error('Error reseteando MongoDB ❌', error)
+    console.error('Error reseteando TypeOrm ❌', error)
   }
 }
 
@@ -48,16 +42,17 @@ beforeAll(async () => {
 })
 
 // afterEach(async () => {
-//   // Opcional: limpiar tras cada test unitario
-//   await resetDatabase();
-// });
+//   await resetDatabase()
+// })
 
 afterAll(async () => {
   try {
-    await mongoose.disconnect()
-    console.log('Conexión MongoDB cerrada ✔️')
+    if (AppDataSource.isInitialized) {
+      await AppDataSource.destroy()
+      console.log('Conexión TypeOrm cerrada ✔️')
+    }
   } catch (error) {
-    console.error('Error cerrando conexión MongoDB ❌', error)
+    console.error('Error cerrando conexión TypeOrm ❌', error)
   }
 })
 EOL

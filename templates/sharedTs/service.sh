@@ -3,23 +3,23 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 
 # Crear el servicio
 cat > "$PROJECT_DIR/src/Shared/Services/BaseService.ts" <<EOL
-import { Document } from 'mongoose'
+import { IData } from '../types/common.js'
 import { BaseRepository } from '../Repositories/BaseRepository.js'
 import { deletFunctionTrue } from '../../../test/generalFunctions.js'
 
-type ParserFunction<T> = (doc: T) => any
+type ParserFunction<U> = (doc: U) => any
 
-export class BaseService<T extends Document> {
-  protected readonly repository: BaseRepository<T>
+export class BaseService<U extends IData> {
+  protected readonly repository: BaseRepository<any, U>
   protected readonly useImages: boolean
   protected readonly deleteImages?: typeof deletFunctionTrue
-  protected readonly parserFunction?: ParserFunction<T>
+  protected readonly parserFunction?: ParserFunction<U>
 
   constructor (
-    repository: BaseRepository<T>,
+    repository: BaseRepository<any, U>,
     useImages = false,
     deleteImages?: typeof deletFunctionTrue,
-    parserFunction?: ParserFunction<T>
+    parserFunction?: ParserFunction<U>
   ) {
     this.repository = repository
     this.useImages = useImages
@@ -51,7 +51,7 @@ export class BaseService<T extends Document> {
     }
   }
 
-  async getOne<K extends keyof T>(value: T[K], field: K) {
+  async getOne<K extends keyof U>(value: U[K], field: K) {
     const res = await this.repository.getOne(value, field)
     return {
       ...res,
@@ -59,7 +59,7 @@ export class BaseService<T extends Document> {
     }
   }
 
-  async create (data: Partial<T>) {
+  async create (data: Partial<U>) {
     const res = await this.repository.create(data)
     return {
       ...res,
@@ -67,7 +67,7 @@ export class BaseService<T extends Document> {
     }
   }
 
-  async update (id: string, data: Partial<T>) {
+  async update (id: string, data: Partial<U>) {
     // Si usas imágenes, puedes obtener el doc anterior para borrar la imagen si es necesario
     if (this.useImages && (this.deleteImages != null)) {
       const prev = await this.repository.getById(id)

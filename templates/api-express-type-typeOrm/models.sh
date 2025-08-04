@@ -4,158 +4,78 @@
 PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO" 
 
 # Crear la base de modelos
-cat > "$PROJECT_DIR/src/Shared/Models/baseSchemaMixin.ts" <<EOL
-import { Schema, SchemaDefinition, SchemaDefinitionType } from 'mongoose'
+cat > "$PROJECT_DIR/src/Shared/Entities/BaseEntity.ts" <<EOL
+import {
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  DeleteDateColumn,
+  BaseEntity as TypeOrmBaseEntity,
+  Column
+} from 'typeorm'
 
-const baseSchemaFields: SchemaDefinition<SchemaDefinitionType<any>> = {
-  enabled: { type: Boolean, default: true },
-  deleted: { type: Boolean, default: false }
-}
+export abstract class BaseEntity extends TypeOrmBaseEntity {
+  @PrimaryGeneratedColumn('uuid')
+    id: string
 
-export function applyBaseSchema (schema: Schema): Schema {
-  schema.add(baseSchemaFields)
+  @CreateDateColumn({ name: 'created_at' })
+    createdAt: Date
 
-  schema.pre('save', function (next) {
-    if (this.enabled === undefined) this.enabled = true
-    if (this.deleted === undefined) this.deleted = false
-    next()
-  })
+  @UpdateDateColumn({ name: 'updated_at' })
+    updatedAt: Date
 
-  schema.methods.softDelete = function () {
-    this.deleted = true
-    this.enabled = false
-    return this.save()
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+    deletedAt?: Date
+
+  @Column({ type: 'boolean', default: true })
+    enabled: boolean
+
+  // Métodos comunes que podrían ser útiles para todas las entidades
+  toJSON (): Record<string, any> {
+    const obj = { ...this }
+    delete obj.deletedAt // Por ejemplo, no mostrar campos internos
+    return obj
   }
-
-  schema.statics.findEnabled = function (filter = {}) {
-    return this.find({ ...filter, enabled: true, deleted: false })
-  }
-
-  return schema
 }
 EOL
-# Crear el modelo de Test
-cat > "$PROJECT_DIR/test/testHelpers/modelTest.help.ts" <<EOL
-import mongoose, { Schema, Document, Model } from 'mongoose'
-import { applyBaseSchema } from '../../src/Shared/Models/baseSchemaMixin.js'
 
-// 1. Define la interfaz para el documento
-export interface ITest extends Document {
-  title: string
-  count: number
-  picture: string
-  enabled: boolean
-  deleted: boolean
-  softDelete: () => Promise<this>
-}
-
-// 2. Define el schema con tipos
-const testSchema = new Schema<ITest>(
-  {
-    title: {
-      type: String,
-      required: true,
-      unique: true
-    },
-    count: {
-      type: Number,
-      required: true
-    },
-    picture: {
-      type: String,
-      required: true
-    }
-  },
-  {
-    timestamps: true
-  }
-)
-
-// 3. Aplica los campos y métodos comunes
-applyBaseSchema(testSchema)
-
-// 4. Crea el modelo
-const Test: Model<ITest> = mongoose.model<ITest>('Test', testSchema)
-
-export default Test
-EOL
 #Crear el modelo de user
-cat > "$PROJECT_DIR/src/Shared/Models/userModel.ts" <<EOL
-import mongoose from 'mongoose'
-import { applyBaseSchema } from './baseSchemaMixin.js'
+cat > "$PROJECT_DIR/src/Shared/Entities/user.entity.ts" <<EOL
+import { Entity, Column } from 'typeorm'
+import { BaseEntity } from './BaseEntity.js'
 
-export interface IUser extends mongoose.Document {
-  _id: mongoose.Types.ObjectId
-  email: string
-  password: string
-  nickname: string
-  picture: string
-  name?: string
-  surname?: string
-  country?: string
-  isVerify: boolean
-  role: number
-  isRoot: boolean
-  deleted: boolean
-  enabled: boolean
-  // ...otros campos heredados de baseSchemaMixin
+@Entity({
+  name: 'users'
+})
+export class User extends BaseEntity {
+  @Column({ type: 'varchar', length: 100, unique: true })
+    email: string
+
+  @Column({ type: 'varchar', length: 100 })
+    password: string
+
+  @Column({ type: 'varchar', length: 100 })
+    nickname: string
+
+  @Column({ type: 'varchar', length: 255 })
+    picture: string
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+    name?: string
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+    surname?: string
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+    country?: string
+
+  @Column({ type: 'boolean', default: false })
+    isVerify: boolean
+
+  @Column({ type: 'int', default: 1 })
+    role: number
+
+  @Column({ type: 'boolean', default: false })
+    isRoot: boolean
 }
-
-const userSchema = new mongoose.Schema(
-  {
-    email: {
-      type: String,
-      required: true,
-      unique: true
-    },
-    password: {
-      type: String,
-      required: true
-    },
-    nickname: {
-      type: String,
-      required: true
-    },
-    picture: {
-      type: String,
-      required: true
-    },
-    name: {
-      type: String,
-      required: false
-    },
-    surname: {
-      type: String,
-      required: false
-    },
-    country: {
-      type: String,
-      required: false
-    },
-    isVerify: {
-      type: Boolean,
-      default: false,
-      required: true
-    },
-    role: {
-      type: Number,
-      enum: [1, 2, 3, 9],
-      default: 1,
-      required: true
-    },
-    isRoot: {
-      type: Boolean,
-      default: false,
-      required: true
-    }
-
-  },
-  {
-    timestamps: true
-  }
-)
-
-applyBaseSchema(userSchema)
-
-export const User = mongoose.model<IUser>('User', userSchema)
 EOL

@@ -30,7 +30,6 @@ interface EnvVariables {
   USER_ROOT_EMAIL: string
   USER_ROOT_PASS: string
 
-  // Aquí puedes añadir más variables que necesites
 }
 
 // Función para obtener y validar las variables de entorno
@@ -48,7 +47,7 @@ function getEnvConfig (): EnvVariables {
   }
 }
 
-// Obtenemos el estado del ambiente
+// Obtener el estado del entorno
 const status: string = Object.keys(configEnv).find(
   (key) => configEnv[key] === envFile
 ) || 'production'

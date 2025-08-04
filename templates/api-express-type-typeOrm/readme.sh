@@ -79,8 +79,8 @@ Esta clase estática contiene una serie de métodos auxiliares para evitar la re
 - \`validateFieldsWithItems\`: validación de un objeto con un array de objetos anidados
 - \`validateQuery\`: validación y tipado de queries (con copia debido a Express 5)
 - \`validateRegex\`: validación de parámetros del body mediante expresiones regulares
-- \`middUuid\`: validación de UUID
-- \`middObjectId\`: validación de ID como ObjectId de mongoose.
+- \`paramId\`: validación de Id dinámica con respecto al nombre como al contenido, consiste de dos parametros que le serán pasados al invocar la función.
+- \`validReg\`: contiene las variables que contienen los regex para validar ids, ya sea uuidv4, integer, ObjectId de mongoose o firebaseId, tambien se pueden utilizar regex externos o funciones de validacion.
 - \`middIntId\`: validación de ID como número entero
 
 #### validateFields:
@@ -168,14 +168,13 @@ const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 router.post('/', MiddlewareHandler.validateRegex(emailRegex, 'email', 'Introduzca un mail válido'), controlador);
 \`\`\`
 
-#### middUuid y middIntId:
-
-Funcionan de forma similar, cambiando solo el tipo de dato a validar:
+#### paramId y ValidReg(opcional):
+Se coloca el nombre del id (userId, id, productId etc) y el regex (del metodo ValidReg o exterior) o funcion validadora:
 
 \`\`\`javascript
 import MiddlewareHandler from '../MiddlewareHandler.ts'
 
-router.get('/:userId', MiddlewareHandler.middIntId('userId'), controlador);
+router.get('/:userId',  MiddlewareHandler.paramId('id', MiddlewareHandler.ValidReg.UUIDv4), controlador);
 \`\`\`
 
 ---

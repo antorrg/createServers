@@ -6,7 +6,7 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 cat > "$PROJECT_DIR/jest.config.js" <<'EOL'
 export default {
   testEnvironment: 'node',
-  setupFilesAfterEnv: ['./test/jest.setup.js']
+  //setupFilesAfterEnv: ['./test/jest.setup.js']
   // extensionsToTreatAsEsm: ['.ts', '.js'],
   // transform: {},
 }

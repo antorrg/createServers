@@ -5,15 +5,16 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.ts" <<EOL
 import { Model, Document, FilterQuery } from 'mongoose'
 import eh from '../../Configs/errorHandlers.js'
+import { IData } from '../types/common.js'
 
 interface Pagination {
   page?: number
   limit?: number
   filters?: Record<string, any>
 }
-interface ResponseWithPagination<T> {
+interface ResponseWithPagination<U> {
   message: string
-  results: T[]
+  results: U[]
   info: {
     totalPages: number
     total: number
@@ -23,32 +24,32 @@ interface ResponseWithPagination<T> {
   }
 }
 
-export class BaseRepository <T extends Document> {
+export class BaseRepository <T extends Document, U extends IData = IData> {
   protected readonly model: Model<T>
   protected readonly modelName?: string
-  protected readonly whereField?: string
+  protected readonly whereField?: keyof U
   constructor (
     model: Model<T>,
     modelName?: string,
-    whereField?: string
+    whereField?: keyof U
   ) {
     this.model = model
     this.modelName = modelName
     this.whereField = whereField
   }
 
-  async getAll (): Promise< { message: string, results: T[] } > {
+  async getAll (): Promise< { message: string, results: U[] } > {
     const docs = await this.model.find()
     if (docs == null) {
       eh.throwError(\`\${this.modelName} not found\`, 404)
     }
     return {
       message: \`\${this.modelName} retrieved\`,
-      results: docs
+      results: docs.map(doc => doc.toObject()  as unknown as U)
     }
   }
 
-  async findWithPagination (query: Pagination & { sort?: Record<string, 1 | -1> }): Promise<ResponseWithPagination<T>> {
+  async findWithPagination (query: Pagination & { sort?: Record<string, 1 | -1> }): Promise<ResponseWithPagination<U>> {
     const page = query.page ?? 1
     const limit = query.limit ?? 10
     const skip = (page - 1) * limit
@@ -62,7 +63,7 @@ export class BaseRepository <T extends Document> {
 
     return {
       message: \`\${this.modelName} list retrieved\`,
-      results: docs,
+      results: docs.map(doc=> doc.toObject()  as unknown as U),
       info: {
         total,
         page,
@@ -73,33 +74,33 @@ export class BaseRepository <T extends Document> {
     }
   }
 
-  async getById (id: string): Promise<{ message: string, results: T }> {
+  async getById (id: string): Promise<{ message: string, results: U }> {
     const doc = await this.model.findById(id)
     if (doc == null) {
       eh.throwError(\`\${this.modelName} not found\`, 404)
     }
     return {
       message: \`\${this.modelName} retrieved\`,
-      results: doc as T
+      results: doc!.toObject()  as unknown as U
     }
   }
 
-  async getOne<K extends keyof T> (value: T[K], field?: K): Promise<{ message: string, results: T }> {
+  async getOne<K extends keyof T> (value: T[K], field?: K): Promise<{ message: string, results: U }> {
     const fieldSearch = field ?? this.whereField
     if (!fieldSearch) {
       throw new Error('No field specified for search')
     }
-    const doc = await this.model.findOne({ [fieldSearch]: value } as FilterQuery<T>)
+    const doc = await this.model.findOne({ [fieldSearch]: value } as FilterQuery<U>)
     if (doc == null) {
       eh.throwError(\`This \${this.modelName} not found\`, 404)
     }
     return {
       message: \`\${this.modelName} retrieved\`,
-      results: doc as T
+      results: doc!.toObject()  as unknown as U
     }
   }
 
-  async create (data: Partial<T>): Promise<{ message: string, results: T }> {
+  async create (data: Partial<T>): Promise<{ message: string, results: U }> {
     if (!this.whereField) {
       throw new Error('No field specified for search')
     }
@@ -116,11 +117,11 @@ export class BaseRepository <T extends Document> {
 
     return {
       message: \`\${this.modelName} created successfully\`,
-      results: newDoc as T
+      results: newDoc!.toObject()  as unknown as U
     }
   }
 
-  async update (id: string, data: Partial<T>): Promise<{ message: string, results: T }> {
+  async update (id: string, data: Partial<T>): Promise<{ message: string, results: U }> {
     const updated = await this.model.findByIdAndUpdate(id, data, { new: true })
     if (updated == null) {
       eh.throwError(\`\${this.modelName} not found\`, 404)
@@ -128,7 +129,7 @@ export class BaseRepository <T extends Document> {
 
     return {
       message: \`\${this.modelName} updated successfully\`,
-      results: updated as T
+      results: updated!.toObject()  as unknown as U
     }
   }
 

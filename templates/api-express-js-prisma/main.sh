@@ -53,7 +53,7 @@ spinner() {
   tput cnorm  # Muestra el cursor
 }
 echo "Instalando dependencias:..."
-npm install cross-env@latest cors@latest dotenv@latest express@latest helmet@latest morgan@latest @prisma/client@latest prisma@latest uuid@latest
+npm install cross-env@latest cors@latest dotenv@latest express@latest helmet@latest morgan@latest @prisma/client@latest prisma@latest uuid@latest express-validator
 echo "Instalando dependencias de desarrollo, aguarde un momento..."
 npm install @babel/core @babel/preset-env babel-jest nodemon@latest standard@latest supertest@latest jest@latest swagger-jsdoc swagger-ui-express inquirer -D
   

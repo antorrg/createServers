@@ -3,7 +3,9 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 
 # Crear BaseRepositories.ts
 cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.ts" <<EOL
-import { Model, Document, FilterQuery } from 'mongoose'
+import { type Repository, type FindOptionsWhere, type FindOptionsOrder, type DeepPartial, type EntityTarget, type ObjectLiteral } from 'typeorm'
+import { type QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity.js'
+import { AppDataSource } from '../../Configs/dataSource.js'
 import eh from '../../Configs/errorHandlers.js'
 
 interface Pagination {
@@ -23,41 +25,43 @@ interface ResponseWithPagination<T> {
   }
 }
 
-export class BaseRepository <T extends Document> {
-  protected readonly model: Model<T>
+export class BaseRepository<T extends ObjectLiteral> {
+  protected readonly model: Repository<T>
   protected readonly modelName?: string
   protected readonly whereField?: string
   constructor (
-    model: Model<T>,
+    entityClass: EntityTarget<T>,
     modelName?: string,
     whereField?: string
   ) {
-    this.model = model
+    this.model = AppDataSource.getRepository(entityClass)
     this.modelName = modelName
     this.whereField = whereField
   }
 
-  async getAll (): Promise< { message: string, results: T[] } > {
+  async getAll (): Promise<{ message: string, results: T[] }> {
     const docs = await this.model.find()
-    if (docs == null) {
-      eh.throwError(\`\${this.modelName} not found\`, 404)
-    }
+    if (!docs) { eh.throwError(\`\${this.modelName} not found\`, 404) }
+    if (docs.length === 0) { return { message: \`No \${this.modelName} yet\`, results: [] } }
     return {
       message: \`\${this.modelName} retrieved\`,
       results: docs
     }
   }
 
-  async findWithPagination (query: Pagination & { sort?: Record<string, 1 | -1> }): Promise<ResponseWithPagination<T>> {
+  async findWithPagination (query: Pagination & { sort?: FindOptionsOrder<T> }): Promise<ResponseWithPagination<T>> {
     const page = query.page ?? 1
     const limit = query.limit ?? 10
     const skip = (page - 1) * limit
-
-    // const filters = (query.filters != null) || {}
     const filters = (query.filters != null) && typeof query.filters === 'object' ? query.filters : {}
-    const sort = (query.sort != null) && typeof query.sort === 'object' ? query.sort : {}
-    const total = await this.model.countDocuments(filters)
-    const docs = await this.model.find(filters).sort(sort).skip(skip).limit(limit)
+    const order = (query.sort != null) && typeof query.sort === 'object' ? query.sort : {}
+
+    const [docs, total] = await this.model.findAndCount({
+      where: filters,
+      order,
+      skip,
+      take: limit
+    })
     const totalPages = Math.ceil(total / limit)
 
     return {
@@ -73,68 +77,65 @@ export class BaseRepository <T extends Document> {
     }
   }
 
-  async getById (id: string): Promise<{ message: string, results: T }> {
-    const doc = await this.model.findById(id)
+  async getById (id: string): Promise<{ message: string, results: T | null }> {
+    const doc = await this.model.findOneBy({ id } as unknown as FindOptionsWhere<T>)
     if (doc == null) {
       eh.throwError(\`\${this.modelName} not found\`, 404)
     }
     return {
       message: \`\${this.modelName} retrieved\`,
-      results: doc as T
+      results: doc
     }
   }
 
-  async getOne<K extends keyof T> (value: T[K], field?: K): Promise<{ message: string, results: T }> {
-    const fieldSearch = field ?? this.whereField
-    if (!fieldSearch) {
-      throw new Error('No field specified for search')
-    }
-    const doc = await this.model.findOne({ [fieldSearch]: value } as FilterQuery<T>)
+  async getOne (where: FindOptionsWhere<T>): Promise<{ message: string, results: T | null }> {
+    const doc = await this.model.findOneBy(where)
     if (doc == null) {
       eh.throwError(\`This \${this.modelName} not found\`, 404)
     }
     return {
       message: \`\${this.modelName} retrieved\`,
-      results: doc as T
+      results: doc
     }
   }
 
-  async create (data: Partial<T>): Promise<{ message: string, results: T }> {
+  async create (data: DeepPartial<T>): Promise<{ message: string, results: T }> {
     if (!this.whereField) {
       throw new Error('No field specified for search')
     }
-    if (!(this.whereField in data)) { // Permite valores falsy válidos (como 0 o '')
+    if (!(this.whereField in data)) {
       throw new Error(\`Missing value for field "\${String(this.whereField)}" in data\`)
     }
-    const fieldValue = data[this.whereField as keyof T]
-    const doc = await this.model.findOne({ [this.whereField]: fieldValue } as FilterQuery<T>)
-    if (doc != null) {
+    const fieldValue = data[this.whereField as keyof DeepPartial<T>]
+    const exists = await this.model.findOneBy({ [this.whereField]: fieldValue } as FindOptionsWhere<T>)
+    if (exists != null) {
       eh.throwError(\`This \${this.modelName} already exists\`, 400)
     }
-
-    const newDoc = await this.model.create(data)
-
+    const entity = this.model.create(data)
+    const newDoc = await this.model.save(entity)
     return {
       message: \`\${this.modelName} created successfully\`,
-      results: newDoc as T
+      results: newDoc
     }
   }
 
-  async update (id: string, data: Partial<T>): Promise<{ message: string, results: T }> {
-    const updated = await this.model.findByIdAndUpdate(id, data, { new: true })
+  async update (id: string, data: QueryDeepPartialEntity<T>): Promise<{ message: string, results: T | null }> {
+    await this.model.update(id, data)
+    const updated = await this.model.findOneBy({ id } as unknown as FindOptionsWhere<T>)
     if (updated == null) {
       eh.throwError(\`\${this.modelName} not found\`, 404)
     }
-
     return {
       message: \`\${this.modelName} updated successfully\`,
-      results: updated as T
+      results: updated
     }
   }
 
   async delete (id: string): Promise<{ message: string }> {
-    await this.model.findByIdAndDelete(id)
-
+    const result = await this.model.delete(id)
+    if (result.affected === 0) {
+      eh.throwError(\`\${this.modelName} not found\`, 404)
+    }
     return {
       message: \`\${this.modelName} deleted successfully\`
     }
@@ -143,77 +144,102 @@ export class BaseRepository <T extends Document> {
 EOL
 # Crear BaseRepository.test.ts
 cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.test.ts" <<EOL
+import { beforeAll, afterAll, describe, it, xit, expect } from '@jest/globals'
 import { BaseRepository } from './BaseRepository.js'
-import Test, {ITest} from '../../../test/testHelpers/modelTest.help.js'
-import { infoClean, resultParsedCreate, newData } from './testHelpers/testHelp.help.js'
+import { AppDataSource } from '../../Configs/dataSource.js'
+import { User } from '../Entities/user.entity.js'
+import { infoClean, createUser, newData } from './testHelpers/testHelp.help.js'
 import { setStringId, getStringId } from '../../../test/testHelpers/testStore.help.js'
-import mongoose from 'mongoose'
-import { testSeeds } from './testHelpers/seeds.help.js'
+import { userSeeds } from './testHelpers/seeds.help.js'
 import { resetDatabase } from '../../../test/jest.setup.js'
 
 /* constructor (
-    model: Model<T>,
-    useImages = false,
-    deleteImages?: typeof mockDeleteFunction,
-    parserFunction?: ParserFunction<T>,
-    modelName?: string,
-    whereField?: keyof T
+   entityClass: EntityTarget<T>,
+       modelName?: string,
+       whereField?: string
   ) */
 
-const test = new BaseRepository<ITest>(Test, 'Test', 'title')
+const test = new BaseRepository<User>(User, 'User', 'email')
 describe('Unit tests for the BaseRepository class: CRUD operations.', () => {
   afterAll(async () => {
     await resetDatabase()
   })
   describe('The "create" method for creating a service', () => {
     it('should create an item with the correct parameters', async () => {
-      const element = { title: 'page', count: 5, picture: 'https//pepe.com' }
-      const response = await test.create(element)
+      const response = await test.create(createUser)
       setStringId(response.results.id)
-      expect(response.message).toBe('Test created successfully')
-      // expect(response.results instanceof mongoose.Model).toBe(true);
-      expect(infoClean(response.results)).toEqual(resultParsedCreate)
+      expect(response.message).toBe('User created successfully')
+      expect(infoClean(response.results)).toEqual({
+        id: expect.any(String),
+        email: 'userejemplo@example.com',
+        picture: 'https://pics.com/u1.jpg',
+        isVerify: true,
+        role: 1,
+        isRoot: false,
+        enabled: true
+      })
     })
   })
   describe('"GET" methods. Return one or multiple services..', () => {
     beforeAll(async () => {
-      await Test.insertMany(testSeeds)
+      const userRepo = AppDataSource.getRepository(User)
+      const users = userRepo.create(userSeeds) // crea instancias
+      await userRepo.save(users) // guarda todas en la base de datos
     })
     it('"getAll" method: should return an array of services', async () => {
       const response = await test.getAll()
-      expect(response.message).toBe('Test retrieved')
+      expect(response.message).toBe('User retrieved')
       expect(response.results.length).toBe(26)
     })
     it('"findWithPagination" method: should return an array of services', async () => {
-      const queryObject = { page: 1, limit: 10, filters: {}, sort: {} }
+      const queryObject = { page: 1, limit: 10, filters: {} }
       const response = await test.findWithPagination(queryObject)
-      expect(response.message).toBe('Test list retrieved')
+      console.log('no order: ', response.results)
+      expect(response.message).toBe('User list retrieved')
       expect(response.info).toEqual({ page: 1, limit: 10, totalPages: 3, count: 10, total: 26 })
       expect(response.results.length).toBe(10)
     })
     it('"findWithPagination" method should return page 2 of results', async () => {
-      const queryObject = { page: 2, limit: 10, filters: {}, sort: {} }
+      const queryObject = { page: 3, limit: 10, filters: {} }
       const response = await test.findWithPagination(queryObject)
-      expect(response.results.length).toBeLessThanOrEqual(10)
-      expect(response.info.page).toBe(2)
+      expect(response.results.length).toBeLessThan(10)
+      expect(response.info.page).toBe(3)
+      expect(response.results.length).toBe(6)
     })
     it('"findWithPagination" method should return sorted results (by title desc)', async () => {
-      const queryObject = { page: 1, limit: 5, sort: { title: -1 } as Record<string, 1 | -1> }
+      const queryObject = { page: 1, limit: 5, sort: { email: 'DESC' as 'DESC' } }
       const response = await test.findWithPagination(queryObject)
-      const titles = response.results.map(r => r.title)
-      const sortedTitles = [...titles].sort().reverse()
-      expect(titles).toEqual(sortedTitles)
+      const emails = response.results.map(u => u.email)
+      const sorted = [...emails].sort((a, b) => b.localeCompare(a))
+      expect(emails).toEqual(sorted)
     })
 
     it('"getById" method: should return an service', async () => {
       const id = getStringId()
       const response = await test.getById(id)
-      expect(infoClean(response.results)).toEqual(resultParsedCreate)
+      expect(response.results).not.toBeNull()
+      expect(infoClean(response.results!)).toEqual({
+        id: expect.any(String),
+        email: 'userejemplo@example.com',
+        picture: 'https://pics.com/u1.jpg',
+        isVerify: true,
+        role: 1,
+        isRoot: false,
+        enabled: true
+      })
     })
     it('"getOne" method: should return an service', async () => {
-       const title= 'page'
-      const response = await test.getOne(title)
-      expect(infoClean(response.results)).toMatchObject(resultParsedCreate)
+      const title = 'userejemplo@example.com'
+      const response = await test.getOne({ email: title })
+      expect(infoClean(response.results!)).toMatchObject({
+        id: expect.any(String),
+        email: 'userejemplo@example.com',
+        picture: 'https://pics.com/u1.jpg',
+        isVerify: true,
+        role: 1,
+        isRoot: false,
+        enabled: true
+      })
     })
   })
   describe('The "update" method - Handles removal of old images from storage.', () => {
@@ -221,22 +247,23 @@ describe('Unit tests for the BaseRepository class: CRUD operations.', () => {
       const id = getStringId()
       const data = newData
       const response = await test.update(id, data)
-      expect(response.message).toBe('Test updated successfully')
+      expect(response.message).toBe('User updated successfully')
       expect(response.results).toMatchObject({
-        id: expect.any(String) as string,
-        title: 'page',
-        picture: 'https://donJose.com',
-        count: 5,
+        id: expect.any(String),
+        email: 'userejemplo@example.com',
+        picture: 'https:donJose.jpg',
+        isVerify: true,
+        role: 1,
+        isRoot: false,
         enabled: true
       })
     })
-    
   })
   describe('The "delete" method.', () => {
     it('should delete a document successfully (soft delete)', async () => {
       const id = getStringId()
       const response = await test.delete(id)
-      expect(response.message).toBe('Test deleted successfully')
+      expect(response.message).toBe('User deleted successfully')
     })
     it('should throw an error if document do not exist', async () => {
       const id = getStringId()
@@ -251,7 +278,7 @@ describe('Unit tests for the BaseRepository class: CRUD operations.', () => {
         ) {
           expect(error).toBeInstanceOf(Error)
           expect((error as { status: number }).status).toBe(404)
-          expect((error as { message: string }).message).toBe('Test not found')
+          expect((error as { message: string }).message).toBe('User not found')
         } else {
           throw error
         }
@@ -262,88 +289,412 @@ describe('Unit tests for the BaseRepository class: CRUD operations.', () => {
 EOL
 # Crear testHelp.help.ts
 cat > "$PROJECT_DIR/src/Shared/Repositories/testHelpers/testHelp.help.ts" <<EOL
-import { Types } from 'mongoose'
-import { ITest } from '../../../../test/testHelpers/modelTest.help.js'
+import { expect } from '@jest/globals'
+import { type User } from '../../Entities/user.entity'
 
-export type Info = Pick<ITest, '_id' | 'title' | 'count' | 'picture' | 'enabled'> & {
-  _id: Types.ObjectId }
-// { _id:Types.ObjectId, title: string, count: number, picture: string, enabled: boolean}
+export interface IUser {
+  id: string
+  email: string
+  password: string
+  nickname: string
+  picture: string
+  name: string
+  surname: string
+  country: string
+  role: number
+  isVerify: boolean
+  isRoot: boolean
+  createdAt: Date
+  updatedAt?: Date
+  deletedAt?: Date
+  enabled: boolean
+
+}
 
 export interface ParsedInfo {
   id: string
-  title: string
-  count: number
+  email: string
   picture: string
+  role: number
+  isVerify: boolean
+  isRoot: boolean
   enabled: boolean
 }
 
-export const infoClean = (data: Info): ParsedInfo => {
+export const infoClean = (data: User): ParsedInfo => {
   return {
-    id: data._id.toString(),
-    title: data.title,
-    count: data.count,
+    id: data.id,
+    email: data.email,
     picture: data.picture,
+    role: data.role,
+    isVerify: data.isVerify,
+    isRoot: data.isRoot,
     enabled: data.enabled
   }
 }
-
-export const resultParsedCreate: ParsedInfo = {
-  id: expect.any(String) as string,
-  title: 'page',
-  count: 5,
-  picture: 'https//pepe.com',
+export const createUser: Partial<User> = {
+  email: 'userejemplo@example.com',
+  password: 'password1',
+  nickname: 'userejemplo',
+  picture: 'https://pics.com/u1.jpg',
+  name: 'Jose',
+  surname: 'Ejemplo',
+  country: 'Argentina',
+  isVerify: true,
+  role: 1,
+  isRoot: false,
   enabled: true
 }
 
 export const newData: Omit<ParsedInfo, 'id'> = {
-  title: 'page',
-  count: 5,
-  picture: 'https://donJose.com',
+  email: 'userejemplo@example.com',
+  picture: 'https:donJose.jpg',
+  isVerify: true,
+  role: 1,
+  isRoot: false,
   enabled: true
 }
 
-export const responseNewData: ParsedInfo = {
-  id: expect.any(String) as string,
-  title: 'page',
-  count: 5,
-  picture: 'https://donJose.com',
+export const responseNewData: any = {
+  id: expect.any(String),
+  email: 'userejemplo@example.com',
+  picture: 'https:donJose.jpg',
+  isVerify: true,
+  role: 1,
+  isRoot: false,
   enabled: true
 }
 EOL
 # Crear testHelp.help.ts
 cat > "$PROJECT_DIR/src/Shared/Repositories/testHelpers/seeds.help.ts" <<EOL
-export interface Seeds {
-  title: string
-  count: number
-  picture: string
-  enabled: boolean
-}
+import { type DeepPartial } from 'typeorm'
+import { type User } from '../../Entities/user.entity.js'
 
-export const testSeeds: Seeds[] = [
-  { title: 'donJose', count: 5, picture: 'https://donJose.com', enabled: true },
-  { title: 'about', count: 2, picture: 'https://about.com/img1', enabled: true },
-  { title: 'contact', count: 7, picture: 'https://contact.com/img2', enabled: false },
-  { title: 'services', count: 1, picture: 'https://services.com/img3', enabled: true },
-  { title: 'portfolio', count: 9, picture: 'https://portfolio.com/img4', enabled: false },
-  { title: 'home', count: 3, picture: 'https://home.com/img5', enabled: true },
-  { title: 'products', count: 12, picture: 'https://products.com/img6', enabled: true },
-  { title: 'team', count: 6, picture: 'https://team.com/img7', enabled: false },
-  { title: 'careers', count: 0, picture: 'https://careers.com/img8', enabled: true },
-  { title: 'blog', count: 4, picture: 'https://blog.com/img9', enabled: true },
-  { title: 'faq', count: 10, picture: 'https://faq.com/img10', enabled: false },
-  { title: 'support', count: 8, picture: 'https://support.com/img11', enabled: true },
-  { title: 'terms', count: 15, picture: 'https://terms.com/img12', enabled: false },
-  { title: 'privacy', count: 11, picture: 'https://privacy.com/img13', enabled: true },
-  { title: 'login', count: 14, picture: 'https://login.com/img14', enabled: true },
-  { title: 'register', count: 13, picture: 'https://register.com/img15', enabled: false },
-  { title: 'dashboard', count: 17, picture: 'https://dashboard.com/img16', enabled: true },
-  { title: 'settings', count: 16, picture: 'https://settings.com/img17', enabled: true },
-  { title: 'notifications', count: 18, picture: 'https://notifications.com/img18', enabled: false },
-  { title: 'messages', count: 19, picture: 'https://messages.com/img19', enabled: true },
-  { title: 'billing', count: 21, picture: 'https://billing.com/img20', enabled: true },
-  { title: 'reports', count: 22, picture: 'https://reports.com/img21', enabled: false },
-  { title: 'analytics', count: 23, picture: 'https://analytics.com/img22', enabled: true },
-  { title: 'integration', count: 24, picture: 'https://integration.com/img23', enabled: true },
-  { title: 'feedback', count: 20, picture: 'https://feedback.com/img24', enabled: false }
+export const userSeeds: Array<DeepPartial<User>> = [
+  {
+    email: 'user1@example.com',
+    password: 'password1',
+    nickname: 'UserOne',
+    picture: 'https://pics.com/u1.jpg',
+    name: 'Alice',
+    surname: 'Smith',
+    country: 'USA',
+    isVerify: true,
+    role: 1,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user2@example.com',
+    password: 'password2',
+    nickname: 'UserTwo',
+    picture: 'https://pics.com/u2.jpg',
+    name: 'Bob',
+    surname: 'Johnson',
+    country: 'Canada',
+    isVerify: false,
+    role: 2,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user3@example.com',
+    password: 'password3',
+    nickname: 'UserThree',
+    picture: 'https://pics.com/u3.jpg',
+    name: 'Carol',
+    surname: 'Williams',
+    country: 'UK',
+    isVerify: true,
+    role: 1,
+    isRoot: false,
+    enabled: false
+  },
+  {
+    email: 'user4@example.com',
+    password: 'password4',
+    nickname: 'UserFour',
+    picture: 'https://pics.com/u4.jpg',
+    name: 'David',
+    surname: 'Brown',
+    country: 'Australia',
+    isVerify: false,
+    role: 2,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user5@example.com',
+    password: 'password5',
+    nickname: 'UserFive',
+    picture: 'https://pics.com/u5.jpg',
+    name: 'Eve',
+    surname: 'Jones',
+    country: 'Spain',
+    isVerify: true,
+    role: 1,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user6@example.com',
+    password: 'password6',
+    nickname: 'UserSix',
+    picture: 'https://pics.com/u6.jpg',
+    name: 'Frank',
+    surname: 'Garcia',
+    country: 'Mexico',
+    isVerify: false,
+    role: 2,
+    isRoot: false,
+    enabled: false
+  },
+  {
+    email: 'user7@example.com',
+    password: 'password7',
+    nickname: 'UserSeven',
+    picture: 'https://pics.com/u7.jpg',
+    name: 'Grace',
+    surname: 'Martinez',
+    country: 'Argentina',
+    isVerify: true,
+    role: 1,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user8@example.com',
+    password: 'password8',
+    nickname: 'UserEight',
+    picture: 'https://pics.com/u8.jpg',
+    name: 'Hank',
+    surname: 'Lopez',
+    country: 'Chile',
+    isVerify: false,
+    role: 2,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user9@example.com',
+    password: 'password9',
+    nickname: 'UserNine',
+    picture: 'https://pics.com/u9.jpg',
+    name: 'Ivy',
+    surname: 'Gonzalez',
+    country: 'Peru',
+    isVerify: true,
+    role: 1,
+    isRoot: false,
+    enabled: false
+  },
+  {
+    email: 'user10@example.com',
+    password: 'password10',
+    nickname: 'UserTen',
+    picture: 'https://pics.com/u10.jpg',
+    name: 'Jack',
+    surname: 'Perez',
+    country: 'Colombia',
+    isVerify: false,
+    role: 2,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user11@example.com',
+    password: 'password11',
+    nickname: 'UserEleven',
+    picture: 'https://pics.com/u11.jpg',
+    name: 'Karen',
+    surname: 'Sanchez',
+    country: 'Uruguay',
+    isVerify: true,
+    role: 1,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user12@example.com',
+    password: 'password12',
+    nickname: 'UserTwelve',
+    picture: 'https://pics.com/u12.jpg',
+    name: 'Leo',
+    surname: 'Ramirez',
+    country: 'Paraguay',
+    isVerify: false,
+    role: 2,
+    isRoot: false,
+    enabled: false
+  },
+  {
+    email: 'user13@example.com',
+    password: 'password13',
+    nickname: 'UserThirteen',
+    picture: 'https://pics.com/u13.jpg',
+    name: 'Mona',
+    surname: 'Torres',
+    country: 'Venezuela',
+    isVerify: true,
+    role: 1,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user14@example.com',
+    password: 'password14',
+    nickname: 'UserFourteen',
+    picture: 'https://pics.com/u14.jpg',
+    name: 'Nate',
+    surname: 'Flores',
+    country: 'Bolivia',
+    isVerify: false,
+    role: 2,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user15@example.com',
+    password: 'password15',
+    nickname: 'UserFifteen',
+    picture: 'https://pics.com/u15.jpg',
+    name: 'Olga',
+    surname: 'Rivera',
+    country: 'Ecuador',
+    isVerify: true,
+    role: 1,
+    isRoot: false,
+    enabled: false
+  },
+  {
+    email: 'user16@example.com',
+    password: 'password16',
+    nickname: 'UserSixteen',
+    picture: 'https://pics.com/u16.jpg',
+    name: 'Paul',
+    surname: 'Gomez',
+    country: 'Guatemala',
+    isVerify: false,
+    role: 2,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user17@example.com',
+    password: 'password17',
+    nickname: 'UserSeventeen',
+    picture: 'https://pics.com/u17.jpg',
+    name: 'Quinn',
+    surname: 'Diaz',
+    country: 'Honduras',
+    isVerify: true,
+    role: 1,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user18@example.com',
+    password: 'password18',
+    nickname: 'UserEighteen',
+    picture: 'https://pics.com/u18.jpg',
+    name: 'Rita',
+    surname: 'Cruz',
+    country: 'El Salvador',
+    isVerify: false,
+    role: 2,
+    isRoot: false,
+    enabled: false
+  },
+  {
+    email: 'user19@example.com',
+    password: 'password19',
+    nickname: 'UserNineteen',
+    picture: 'https://pics.com/u19.jpg',
+    name: 'Sam',
+    surname: 'Ortiz',
+    country: 'Nicaragua',
+    isVerify: true,
+    role: 1,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user20@example.com',
+    password: 'password20',
+    nickname: 'UserTwenty',
+    picture: 'https://pics.com/u20.jpg',
+    name: 'Tina',
+    surname: 'Morales',
+    country: 'Costa Rica',
+    isVerify: false,
+    role: 2,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user21@example.com',
+    password: 'password21',
+    nickname: 'UserTwentyOne',
+    picture: 'https://pics.com/u21.jpg',
+    name: 'Uma',
+    surname: 'Castro',
+    country: 'Panama',
+    isVerify: true,
+    role: 1,
+    isRoot: false,
+    enabled: false
+  },
+  {
+    email: 'user22@example.com',
+    password: 'password22',
+    nickname: 'UserTwentyTwo',
+    picture: 'https://pics.com/u22.jpg',
+    name: 'Vic',
+    surname: 'Rojas',
+    country: 'Cuba',
+    isVerify: false,
+    role: 2,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user23@example.com',
+    password: 'password23',
+    nickname: 'UserTwentyThree',
+    picture: 'https://pics.com/u23.jpg',
+    name: 'Will',
+    surname: 'Mendez',
+    country: 'Dominican Republic',
+    isVerify: true,
+    role: 1,
+    isRoot: false,
+    enabled: true
+  },
+  {
+    email: 'user24@example.com',
+    password: 'password24',
+    nickname: 'UserTwentyFour',
+    picture: 'https://pics.com/u24.jpg',
+    name: 'Xena',
+    surname: 'Silva',
+    country: 'Puerto Rico',
+    isVerify: false,
+    role: 2,
+    isRoot: false,
+    enabled: false
+  },
+  {
+    email: 'user25@example.com',
+    password: 'password25',
+    nickname: 'UserTwentyFive',
+    picture: 'https://pics.com/u25.jpg',
+    name: 'Yuri',
+    surname: 'Navarro',
+    country: 'Haiti',
+    isVerify: true,
+    role: 1,
+    isRoot: true,
+    enabled: true
+  }
 ]
 EOL

@@ -38,6 +38,7 @@ EOL
 # Crear el archivo @types en src
 cat > "$PROJECT_DIR/src/@types/index.d.ts" <<EOL
 import { JwtPayload } from '../Shared/Auth/auth.ts'
+import 'express-serve-static-core'
 
 declare global {
   namespace Express {
@@ -47,7 +48,24 @@ declare global {
     }
   }
 }
+
+declare module 'express-serve-static-core' {
+  interface Request {
+    context?: {
+      query?: Record<string, any>
+    }
+  }
+}
 EOL
+#Crear archivo de tipos genericos de repository 
+cat > "$PROJECT_DIR/src/Shared/types/common.ts" <<EOL
+export interface IData {
+    id: string
+    enabled: boolean
+    deleted: string
+}
+EOL
+
 # Crear el archivo routes.ts en src
 cat > "$PROJECT_DIR/src/routes.ts" <<EOL
 import { Router } from 'express'
