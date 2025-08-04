@@ -913,9 +913,9 @@ function toJsObjectString(obj, indent = 2) {
   return JSON.stringify(obj)
 }
 EOL
-mkdir -p $PROJECT_DIR/src/Shared/Middlewares/sanitize
 
-cat > "$PROJECT_DIR/src/Shared/Middlewares/sanitize/" <<EOL
+cat > "$PROJECT_DIR/src/Shared/Middlewares/sanitize/sanitize.js" <<EOL
+console.log('todavia no')
 EOL
-cat > "$PROJECT_DIR/src/Shared/Middlewares/sanitize/" <<EOL
+cat > "$PROJECT_DIR/src/Shared/Middlewares/sanitize/sanitize.test.js" <<EOL
 EOL
