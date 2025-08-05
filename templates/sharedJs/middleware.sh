@@ -3,8 +3,8 @@
 PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO" 
 
 #Crear el middleware
+# Dependencias: validator uuid (para pruebas express, jest supertest)
 mkdir -p $PROJECT_DIR/src/Shared/Middlewares/helpers
-mkdir -p $PROJECT_DIR/src/Shared/Middlewares/sanitize
 mkdir -p $PROJECT_DIR/src/Shared/Middlewares/helpers/createSchema
 cat > "$PROJECT_DIR/src/Shared/Middlewares/MiddlewareHandler.js" <<EOL
 import { validate as uuidValidate } from 'uuid'
@@ -14,33 +14,9 @@ import {ValidateSchema} from './helpers/ValidateSchema.js'
 
 export default class MiddlewareHandler {
 
-  static validateFields = (schema) => ValidateSchema.validate(schema)
-
-  // MiddlewareHandler.validateQuery([{name: 'authorId', type: 'int', required: true}]),
- static validateQuery (requiredFields = []) {
-    return (req, res, next) => {
-      try {
-        const validatedQuery = {}
-        requiredFields.forEach(({ name, type, default: defaultValue }) => {
-          let value = req.query[name]
-
-          if (value === undefined) {
-            value = defaultValue !== undefined ? defaultValue : AuxValid.getDefaultValue(type)
-          } else {
-            value = AuxValid.validateValue(value, type, name)
-          }
-
-          validatedQuery[name] = value
-        })
-        //req.validatedQuery = validatedQuery // Nuevo objeto tipado en lugar de modificar req.query
-        req.context = req.context || {}
-        req.context.query = validatedQuery
-        next()
-      } catch (error) {
-        return next(AuxValid.middError(error.message, 400))
-      }
-    }
-  }
+  static validateFields = (schema) => ValidateSchema.validateBody(schema)
+  static validateQuery = (schema)=> ValidateSchema.validateQuery(schema)
+  static validateHeaders= (schema) => ValidateSchema.validateHeaders(schema)
 
   static validateRegex (validRegex, nameOfField, message = null) {
     return (req, res, next) => {
@@ -95,6 +71,7 @@ export default class MiddlewareHandler {
 
 EOL
 cat > "$PROJECT_DIR/src/Shared/Middlewares/helpers/auxValid.js" <<EOL
+import validator from 'validator'
 export class AuxValid {
   static middError (message, status = 500) {
     const error = new Error(message)
@@ -133,8 +110,15 @@ export class AuxValid {
   }
 
   // Nueva función para aislar la lógica de validación
-  static validateValue (value, fieldType, fieldName, itemIndex = null) {
+  static validateValue (value, fieldType, fieldName, itemIndex = null, sanitize={}) {
     const indexInfo = itemIndex !== null ? \` in item[\${itemIndex}]\` : ''
+    
+     if (typeof value === 'object') {
+    if (value instanceof String || value instanceof Number || value instanceof Boolean) {
+      value = value.valueOf()
+    }
+  }
+
 
     switch (fieldType) {
       case 'boolean':
@@ -153,6 +137,12 @@ export class AuxValid {
         if (typeof value !== 'string') {
           throw new Error(\`Invalid string value for field \${fieldName}\${indexInfo}\`)
         }
+        if (sanitize) {
+        if (sanitize.trim) value = validator.trim(value)
+        if (sanitize.escape) value = validator.escape(value)
+        if (sanitize.lowercase) value = value.toLowerCase()
+        if (sanitize.uppercase) value = value.toUpperCase()
+      }
         return value
     }
   }
@@ -163,7 +153,7 @@ import { AuxValid } from './auxValid.js'
 
 
 export class ValidateSchema {
-  static validate(schema) {
+  static validateBody(schema) {
     return (req, res, next) => {
       try {
         const validated = ValidateSchema.#validateStructure(req.body, schema)
@@ -174,55 +164,107 @@ export class ValidateSchema {
       }
     }
   }
+    static validateQuery(schema) {
+    return (req, res, next) => {
+      try {
+        const validated = ValidateSchema.#validateStructure(req.query, schema)
+        req.context = req.context || {}
+        req.context.query = validated
+        next()
+      } catch (err) {
+        return next(AuxValid.middError(err.message, 400))
+      }
+    }
+  }
+static validateHeaders(schema) {
+  return (req, res, next) => {
+    try {
+      const headers = req.headers || {}
+      // 1. Validar existencia y valor de content-type
+      const contentType = headers['content-type']
+      if (!contentType) {
+        throw new Error('Missing required header: content-type')
+      }
+      const lowerContentType = contentType.toLowerCase()
+      if (
+        lowerContentType !== 'application/json' &&
+        !lowerContentType.startsWith('multipart/form-data')
+      ) {
+        throw new Error('Invalid Content-Type header')
+      }
 
-  static #validateStructure(data, schema, path = '') {
-    if (typeof schema === 'string' || (typeof schema === 'object' && schema.type)) {
+      // 2. Validar resto del esquema si existe
+      if (schema) {
+        const validated = ValidateSchema.#validateStructure(headers, schema, 'headers')
+        req.context = req.context || {}
+        req.context.headers = validated
+      } else {
+        // Si no hay esquema, solo guardamos el header validado
+        req.context = req.context || {}
+        req.context.headers = { 'content-type': contentType }
+      }
+      
+      next()
+    } catch (err) {
+      return next(AuxValid.middError(err.message, 400))
+    }
+  }
+}
+static #validateStructure(data, schema, path = '') {
+  if (Array.isArray(schema)) {
+    if (!Array.isArray(data)) {
+      throw new Error(\`Expected array at \${path || 'root'}\`)
+    }
+    return data.map((item, i) =>
+      ValidateSchema.#validateStructure(item, schema[0], \`\${path}[\${i}]\`)
+    )
+  }
+
+  if (typeof schema === 'object' && schema !== null) {
+    // Si es un esquema de campo escalar con opciones
+    if ('type' in schema) {
       return ValidateSchema.#validateField(data, schema, path)
     }
 
-    if (Array.isArray(schema)) {
-      if (!Array.isArray(data)) {
-        throw new Error(\`Expected array at \${path || 'root'}\`)
-      }
-      return data.map((item, i) =>
-        ValidateSchema.#validateStructure(item, schema[0], \`\${path}[\${i}]\`)
-      )
+    // Si es un objeto complejo con múltiples claves
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+      throw new Error(\`Expected object at \${path || 'root'}\`)
     }
 
-    if (typeof schema === 'object') {
-      if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-        throw new Error(\`Expected object at \${path || 'root'}\`)
-      }
+    const result = {}
+    for (const key in schema) {
+      const fieldSchema = schema[key]
+      const fullPath = path ? \`\${path}.\${key}\` : key
+      const value = data[key]
 
-      const result = {}
-      for (const key in schema) {
-        const fieldSchema = schema[key]
-        const fullPath = path ? \`\${path}.\${key}\` : key
-        const value = data[key]
-
-        if (!(key in data)) {
-          if (fieldSchema.optional) {
-            continue // omitido si es opcional
-          } else if ('default' in fieldSchema) {
-            result[key] = fieldSchema.default
-            continue
-          } else {
-            throw new Error(\`Missing field: \${key} at \${fullPath}\`)
-          }
+      if (!(key in data)) {
+        if (fieldSchema.optional) {
+          continue
+        } else if ('default' in fieldSchema) {
+          result[key] = fieldSchema.default
+          continue
+        } else {
+          throw new Error(\`Missing field: \${key} at \${fullPath}\`)
         }
-
-        result[key] = ValidateSchema.#validateStructure(value, fieldSchema, fullPath)
       }
-      return result
-    }
 
-    throw new Error(\`Invalid schema at \${path || 'root'}\`)
+      result[key] = ValidateSchema.#validateStructure(value, fieldSchema, fullPath)
+    }
+    return result
   }
+
+  // Si es un tipo simple, como string directamente
+  if (typeof schema === 'string') {
+    return ValidateSchema.#validateField(data, { type: schema }, path)
+  }
+
+  throw new Error(\`Invalid schema at \${path || 'root'}\`)
+}
 
   static #validateField(value, fieldSchema, path) {
     const type = typeof fieldSchema === 'string' ? fieldSchema : fieldSchema.type
+    const sanitize = typeof fieldSchema === 'object' ? fieldSchema.sanitize : false
 
-    // Si está ausente y hay valor por defecto
     if (value === undefined || value === null) {
       if (typeof fieldSchema === 'object' && 'default' in fieldSchema) {
         return fieldSchema.default
@@ -230,8 +272,7 @@ export class ValidateSchema {
       throw new Error(\`Missing required field at \${path}\`)
     }
 
-    // Validación real
-    return AuxValid.validateValue(value, type, path)
+    return AuxValid.validateValue(value, type, path, null, sanitize)
   }
 }
 EOL
@@ -514,10 +555,37 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
       })
     })
   })
+   describe('Metodo "validateHeaders", validacion y guardado de headers (default: "Content-Type"', () => {
+    it('deberia fallar con un Content-Type incorrecto', async () => {
+      const res = await agent
+        .post('/sanitize-headers')
+        .set('Authorization', 'Bearer token')
+        .set('Content-Type', 'text/html')
+      expect(res.status).toBe(400)
+      expect(res.body).toBe('Invalid Content-Type header')
+    })
+     it('deberia pasar con Content-Type application/json correcto', async () => {
+      const res = await agent
+        .post('/sanitize-headers')
+        .set('Authorization', 'Bearer token')
+        .set('Content-Type', 'application/json')
+      expect(res.status).toBe(200)
+    })
+
+    it('should pass with multipart/form-data', async () => {
+      const res = await agent
+        .post('/sanitize-headers-form')
+        .set('Authorization', 'Bearer token')
+          .set('Content-Type', 'multipart/form-data')//; boundary=----WebKitFormBoundary')
+         .field('name', 'test value')
+      expect(res.status).toBe(200)
+      expect(res.body.success).toBe(true)
+    })
+  })
   describe('Metodo "validateQuery", validacion y tipado de queries en peticiones GET', () => {
     it('deberia validar, tipar los parametros y permitir el paso si estos fueran correctos.', async () => {
       const response = await agent
-        .get('/test/param?page=2&size=2.5&fields=pepe&truthy=true')
+        .get('/test/param?page=2&size=2.5&fields=PEPE&truthy=true')
         .expect('Content-Type', /json/)
         .expect(200)
       expect(response.body.message).toBe('Passed middleware')
@@ -659,16 +727,21 @@ const threeSchema = {
   tags: [{ type: 'string' }],
   metadata: { type: 'string', optional: true }
 }
-
+const headerSchema = {
+  'content-type': {
+    type: 'string',
+    sanitize: { trim: true, lowercase: true },
+  }
+}
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
 
-const queries = [
-  { name: 'page', type: 'int' },
-  { name: 'size', type: 'float' },
-  { name: 'fields', type: 'string' },
-  { name: 'truthy', type: 'boolean' }
-]
-
+const queries = 
+{
+ page: {type: 'int', default: 1},
+ size: {type: 'float', default: 1},
+ fields: {type: 'string', default: '', sanitize:{trim: true, escape: true, lowercase: true}},
+ truthy: {type: 'boolean', default: false}
+}
 const serverTest = express()
 serverTest.use(express.json())
 
@@ -707,6 +780,18 @@ serverTest.post(
   }
 )
 
+serverTest.post(
+  '/sanitize-headers', 
+  MiddlewareHandle.validateHeaders(headerSchema), 
+  (req, res) => {
+  res.status(200).json({ success: true, headers: req.headers })
+})
+serverTest.post(
+  '/sanitize-headers-form', 
+  MiddlewareHandle.validateHeaders(headerSchema), 
+  (req, res) => {
+  res.status(200).json({ success: true, headers: req.headers, result: req.context.headers})
+})
 serverTest.get(
   '/test/param',
   MiddlewareHandle.validateQuery(queries),
@@ -739,10 +824,11 @@ serverTest.use((err, req, res, next) => {
 export default serverTest
 EOL
 
+# Creacion de generadores de esquemas
 cat > "$PROJECT_DIR/src/Shared/Middlewares/helpers/createSchema/generate.js" <<EOL
 import inquirer from "inquirer";
 
-export default async function promptForField(){
+export default async function promptForField() {
   const field = {}
 
   const { name } = await inquirer.prompt({
@@ -783,7 +869,6 @@ export default async function promptForField(){
         validate: input => input.length > 0
       })
 
-      // parsear según tipo
       fieldConfig.default =
         kind === 'int' ? parseInt(defaultValue) :
         kind === 'float' ? parseFloat(defaultValue) :
@@ -793,6 +878,28 @@ export default async function promptForField(){
 
     if (isOptional) {
       fieldConfig.optional = true
+    }
+
+    // 🔽 Si es tipo string, preguntamos por sanitizers
+    if (kind === 'string') {
+      const { sanitizers } = await inquirer.prompt({
+        type: 'checkbox',
+        name: 'sanitizers',
+        message: '¿Qué sanitizadores querés aplicar?',
+        choices: [
+          { name: 'trim', value: 'trim' },
+          { name: 'escape', value: 'escape' },
+          { name: 'toLowerCase', value: 'lowercase' },
+          { name: 'toUpperCase', value: 'uppercase' }
+        ]
+      })
+
+      if (sanitizers.length > 0) {
+        fieldConfig.sanitize = {}
+        for (const s of sanitizers) {
+          fieldConfig.sanitize[s] = true
+        }
+      }
     }
 
     field[name] = fieldConfig
@@ -841,8 +948,33 @@ export default async function promptForField(){
       }
       field[name] = [subfields]
     } else {
-      field[name] = [{ type: itemType }]
+      const itemSchema = { type: itemType }
+
+      // 🔽 Si los elementos son strings, preguntar por sanitizadores
+      if (itemType === 'string') {
+        const { sanitizers } = await inquirer.prompt({
+          type: 'checkbox',
+          name: 'sanitizers',
+          message: '¿Qué sanitizadores querés aplicar a los elementos del array?',
+          choices: [
+            { name: 'trim', value: 'trim' },
+            { name: 'escape', value: 'escape' },
+            { name: 'toLowerCase', value: 'lowercase' },
+            { name: 'toUpperCase', value: 'uppercase' }
+          ]
+        })
+
+        if (sanitizers.length > 0) {
+          itemSchema.sanitize = {}
+          for (const s of sanitizers) {
+            itemSchema.sanitize[s] = true
+          }
+        }
+      }
+
+      field[name] = [itemSchema]
     }
+
     return field
   }
 }
@@ -912,10 +1044,4 @@ function toJsObjectString(obj, indent = 2) {
 
   return JSON.stringify(obj)
 }
-EOL
-
-cat > "$PROJECT_DIR/src/Shared/Middlewares/sanitize/sanitize.js" <<EOL
-console.log('todavia no')
-EOL
-cat > "$PROJECT_DIR/src/Shared/Middlewares/sanitize/sanitize.test.js" <<EOL
 EOL
