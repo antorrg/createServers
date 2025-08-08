@@ -6,9 +6,6 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 cat > "$PROJECT_DIR/jest.config.js" <<'EOL'
 export default {
   testEnvironment: 'node',
-  //setupFilesAfterEnv: ['./test/jest.setup.js']
-  // extensionsToTreatAsEsm: ['.ts', '.js'],
-  // transform: {},
 }
 EOL
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -16,11 +13,7 @@ EOL
 cat > "$PROJECT_DIR/test/generalFunctions.js" <<EOL
 import { throwError } from '../src/Configs/errorHandlers.js'
 
-interface DeleteResult {
-  success: true
-  message: string
-}
-export async function mockDeleteFunction (url: string, result: boolean): Promise<DeleteResult> {
+export async function mockDeleteFunction (url, result) {
   if (result) {
     await new Promise(resolve => setTimeout(resolve, 1500))
     return {
@@ -33,14 +26,14 @@ export async function mockDeleteFunction (url: string, result: boolean): Promise
     throw new Error()
   }
 }
-export const deletFunctionTrue = async (url: string, _result?: boolean): Promise<DeleteResult> => {
+export const deletFunctionTrue = async (url, result) => {
   // console.log('probando deleteFunction: ', url);
   return {
     success: true,
     message: \`ImageUrl \${url} deleted succesfully\`
   }
 }
-export const deletFunctionFalse = async (url: string, _result?: boolean): Promise<never> => {
+export const deletFunctionFalse = async (url, result) => {
   // console.log('probando deleteErrorFunction: ', url);
   throwError(\`Error processing ImageUrl: \${url}\`, 500)
   throw new Error()
@@ -87,3 +80,70 @@ export const getNumberId = () => {
   return numberId
 }
 EOL
+
+cat > "$PROJECT_DIR/test/testHelpers/User-helpers/users.js" <<EOL
+export const users = [
+  {
+    username: 'Bret',
+    email: 'Sincere@april.biz',
+    picture: 'abs@gmail.com',
+    password: 'L1234567'
+  },
+  {
+    username: 'Antonette',
+    email: 'Shanna@melissa.tv',
+    picture: 'abs@gmail.com',
+    password: 'L1234567'
+  },
+  {
+    username: 'Samantha',
+    email: 'Nathan@yesenia.net',
+    picture: 'abs@gmail.com',
+    password: 'L1234567'
+  },
+  {
+    username: 'Karianne',
+    email: 'Julianne.OConner@kory.org',
+    picture: 'abs@gmail.com',
+    password: 'L1234567'
+  },
+  {
+    username: 'Kamren',
+    email: 'Lucio_Hettinger@annie.ca',
+    picture: 'abs@gmail.com',
+    password: 'L1234567'
+  },
+  {
+    username: 'Leopoldo_Corkery',
+    email: 'Karley_Dach@jasper.info',
+    picture: 'abs@gmail.com',
+    password: 'L1234567'
+  },
+  {
+    username: 'Elwyn.Skiles',
+    email: 'Telly.Hoeger@billy.biz',
+    picture: 'abs@gmail.com',
+    password: 'L1234567'
+  },
+  {
+    username: 'Maxime_Nienow',
+    email: 'Sherwood@rosamond.me',
+    picture: 'abs@gmail.com',
+    password: 'L1234567'
+  },
+  {
+    username: 'Delphine',
+    email: 'Chaim_McDermott@dana.io',
+    picture: 'abs@gmail.com',
+    password: 'L1234567'
+  },
+  {
+
+    username: 'Moriah.Stanton',
+    email: 'Rey.Padberg@karina.biz',
+    picture: 'abs@gmail.com',
+    password: 'L1234567'
+  }
+]
+EOL
+

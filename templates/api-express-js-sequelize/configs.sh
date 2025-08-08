@@ -5,7 +5,6 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 # Crear el archivo de configuración dotenv
 cat > "$PROJECT_DIR/src/Configs/envConfig.js" <<EOL
 import dotenv from 'dotenv'
-import fs from 'fs'
 
 const configEnv = {
   development: '.env.development',
@@ -17,13 +16,6 @@ dotenv.config({ path: envFile })
 
 const Status = Object.keys(configEnv).find(key => configEnv[key] === envFile) || 'production'
 const { PORT, DATABASE_URL, LOG_ERRORS, JWT_EXPIRES_IN, JWT_SECRET, USER_IMG } = process.env
-// Generar el archivo .env dinámico para Prisma
-if (process.env.NODE_ENV !== 'production') {
-  fs.writeFileSync(
-    '.env',
-    \`PORT=\${PORT}\nDATABASE_URL=\${DATABASE_URL}\`
-  )
-}
 
 export default {
   Port: PORT,
@@ -37,53 +29,55 @@ export default {
 EOL
 # Crear archivo de configuracion de base de datos Prisma
 cat > "$PROJECT_DIR/src/Configs/database.js" <<EOL
-import { PrismaClient } from '@prisma/client'
-import { execSync } from 'child_process'
+import { Sequelize } from 'sequelize'
+import models from '../../models/index.js'
 import env from './envConfig.js'
 
-import fs from 'fs'
-
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: env.DatabaseUrl // Url base de datos segun entorno.
-    }
-  }
+const sequelize = new Sequelize(env.DatabaseUrl,{
+  dialect: "postgres",
+  logging: false,
+  native: false
 })
 
-const startApp = async () => {
-  try {
-    await prisma.\$connect()
-    console.log('Conexión a Postgres establecida con Prisma.')
-  } catch (error) {
-    console.error('Error al conectar con Prisma:', error.message)
-    process.exit(1) // Salida con error
-  }
-}
+Object.values(models).forEach((model) => model(sequelize))
 
-const initializeDatabase = async () => { // Solo tests (borra la db)
+const {
+  User,
+} = sequelize.models
+
+//Relations here:
+
+
+
+
+//-------------------------------------------------------------
+const startApp = async (synced=false, forced=false) => {
   try {
-    await prisma.\$connect()
-    execSync('npx prisma db push --force-reset', { stdio: 'inherit' })
-    console.log('🧪 Conectando prisma')
+    await sequelize.authenticate()
+    if(synced === true){
+      await sequelize.sync({force: forced})
+      console.log(\`✔️  Database synced successfully!!\n Force: \${forced}\`)
+    }
+    console.log('🟢 Connection to Postgres established with Sequelize')
   } catch (error) {
-    console.error('❌ Error al iniciar la base de datos:', error)
+    console.error('❌ Error connecting to Sequelize:', error.message)
+    process.exit(1) // Salida con error
   }
 }
 
 const closeDatabase = async () => {
   try {
-    await prisma.\$disconnect()
-    console.log('🛑 Cerrando conexión con la base de datos.')
+    await sequelize.close()
+    console.log('🛑 Closing connection to database.')
   } catch (error) {
-    console.error('❌ Error al cerrar la base de datos:', error)
+    console.error('❌ Error closing database:', error)
   }
 }
 
 export {
-  prisma,
+  User,
+  sequelize,
   startApp,
-  initializeDatabase,
   closeDatabase
 }
 EOL
@@ -91,25 +85,28 @@ EOL
 # Crear archivo de test de entorno y db
 cat > "$PROJECT_DIR/src/Configs/EnvDb.test.js" <<EOL
 import env from './envConfig.js'
-import { prisma } from './database.js'
+import { User, startApp, closeDatabase } from './database.js'
 
 describe('Iniciando tests, probando variables de entorno del archivo "envConfig.js" y existencia de tablas en DB.', () => {
-  afterAll(() => {
-    console.log('Finalizando todas las pruebas...')
+  beforeAll(async() => {
+    await startApp(true, true)
+  })
+  afterAll(async()=>{
+    await closeDatabase()
   })
 
   it('Deberia retornar el estado y la variable de base de datos correcta', () => {
     const formatEnvInfo = \`Servidor corriendo en: \${env.Status}\n\` +
                    \`Base de datos de testing: \${env.DatabaseUrl}\`
     expect(formatEnvInfo).toBe('Servidor corriendo en: test\n' +
-        'Base de datos de testing: postgresql://postgres:antonio@localhost:5432/prismatest')
+        'Base de datos de testing: postgres://postgres:password@localhost:5432/prismatest')
   })
   it('deberia hacer un get a las tablas y obtener un arreglo vacio', async () => {
     const models = [
-      prisma.user
+      User
     ]
     for (const model of models) {
-      const records = await model.findMany()
+      const records = await model.findAll()
       expect(Array.isArray(records)).toBe(true)
       expect(records.length).toBe(0)
     }

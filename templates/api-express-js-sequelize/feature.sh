@@ -5,7 +5,7 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 # Crear el archivo user.routes.js en src
 cat > "$PROJECT_DIR/src/Features/user/user.routes.js" <<EOL
 import express from 'express'
-import { prisma } from '../../Configs/database.js'
+import { User} from '../../Configs/database.js'
 import { GeneralRepository } from '../../Shared/Repositories/GeneralRepository.js'
 import { BaseService } from '../../Shared/Services/BaseService.js'
 import { BaseController } from '../../Shared/Controllers/BaseController.js'
@@ -13,7 +13,7 @@ import vld from './validHelpers/index.js'
 import { UserDTO, dataEmpty } from './UserDTO.js'
 import MiddlewareHandler from '../../Shared/Middlewares/MiddlewareHandler.js'
 
-const userRep = new GeneralRepository(prisma.user, dataEmpty)
+const userRep = new GeneralRepository(User, dataEmpty)
 const userService = new BaseService(userRep, 'User', 'email', UserDTO.parser, false, null)
 const userController = new BaseController(userService)
 
@@ -64,7 +64,7 @@ export class UserDTO {
       picture: d.picture,
       username: d.username,
       enabled: d.enabled,
-      createdAt: d.createdAt
+      createdAt: d.createdAt.toString()
     }
   }
 }
@@ -145,12 +145,12 @@ export default {
   },
   order: {
     type: 'string',
-    default: 'desc',
+    default: 'DESC',
     optional: false,
     sanitize: {
       trim: true,
       escape: true,
-      lowercase: true
+      uppercase: true
     }
   },
   searchField: {

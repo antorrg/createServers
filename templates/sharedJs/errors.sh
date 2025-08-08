@@ -6,7 +6,6 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 cat > "$PROJECT_DIR/src/Configs/errorHandlers.js" <<EOL
 import envConfig from './envConfig.js'
 
-
 class CustomError extends Error {
   constructor (log = false) {
     super()
@@ -17,18 +16,18 @@ class CustomError extends Error {
   throwError (message, status, err) {
     const error = new Error(message)
     error.status = Number(status) || 500
-    if (this.log && (err != null)) {
+    if ((this.log === true) && (err != null)) {
       console.error('Error: ', err)
     }
     throw error
   }
 
-  processError (err, contextMessage){
+  processError (err, contextMessage) {
     const defaultStatus = 500
     const status = err.status || defaultStatus
 
     const message = err.message
-      ? \`\${contextMessage}: \${err.message}\`
+      ? \`\${err.message}\`
       : contextMessage
 
     // Creamos un nuevo error con la información combinada
@@ -36,9 +35,10 @@ class CustomError extends Error {
     error.status = status
     error.originalError = err // Guardamos el error original para referencia
 
-    // Log en desarrollo si es necesario
-    if (this.log) {
-      console.error('Error procesado:', {
+    // Log si es necesario
+
+    if (this.log === true) {
+      console.error('Processed error:', {
         context: contextMessage,
         originalMessage: err.message,
         status,
@@ -49,8 +49,8 @@ class CustomError extends Error {
     throw error
   }
 }
-const environment = envConfig.Status
-const errorHandler = new CustomError(environment === 'development' || environment === 'test')
+
+const errorHandler = new CustomError(envConfig.LogErrors)
 
 export const catchController = (controller) => {
   return (req, res, next) => {
@@ -73,11 +73,11 @@ export const errorEndWare = (err, req, res, next) => {
   res.status(status).json({
     success: false,
     message,
-    data: null
+    results: null
   })
 }
 
-export const jsonFormat = (err, req, res, next)=> {
+export const jsonFormat = (err, req, res, next) => {
   if (err instanceof SyntaxError && 'status' in err && err.status === 400 && 'body' in err) {
     return next(middError('Invalid JSON format', 400))
   } else {
@@ -85,7 +85,7 @@ export const jsonFormat = (err, req, res, next)=> {
   }
 }
 
-export const notFoundRoute = (req, res, next)=> {
+export const notFoundRoute = (req, res, next) => {
   return next(middError('Not Found', 404))
 }
 

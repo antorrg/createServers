@@ -5,6 +5,7 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 # Crear el repositorio
 cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.js" <<EOL
 import eh from '../../Configs/errorHandlers.js'
+import {Op} from 'sequelize'
 
 const throwError = eh.throwError
 // Esto es lo mas parecido a una clase abstracta, no se puede instanciar, solo se puede extender.
@@ -24,12 +25,12 @@ export default class BaseRepository {
       if (uniqueField) {
         whereClause[uniqueField] = data[uniqueField]
       }
-      const existingRecord = await this.Model.findFirst({ where: whereClause })
+      const existingRecord = await this.Model.findOne({ where: whereClause })
 
       if (existingRecord) {
         throwError(\`This \${this.Model.name.toLowerCase()} \${uniqueField || 'entry'} already exists\`, 400)
       }
-      const newRecord = await this.Model.create({ data })
+      const newRecord = await this.Model.create( data )
 
       return newRecord
     } catch (error) {
@@ -38,35 +39,28 @@ export default class BaseRepository {
   }
 
   async getAll (isAdmin = false) {
-    const admin = isAdmin ? {} : { enabled: true }
-    const response = await this.Model.findMany({ where: admin })
+    const response = await this.Model.scope(isAdmin ? 'allRecords' : 'enabledOnly').findAll()
     return response
   }
-
+  
   async getWithPagination (queryObject, isAdmin = false) {
-    const { searchField = '', search = null, sortBy = 'id', order = 'desc', page = 1, limit = 10 } = queryObject
+    const { searchField = '', search = null, sortBy = 'id', order = 'DESC', page = 1, limit = 10, filters={} } = queryObject
     const offset = (page - 1) * limit
-    // Construimos el filtro de búsqueda
-    const admin = isAdmin ? {} : { enabled: true }
-    const searchFilter = search ? { [searchField]: { contains: search, mode: 'insensitive' } } : {}
+    const searchFilter = search && searchField ? { [searchField]: { [Op.iLike]: \`%\${search}%\`} } : {}
     // Combinamos filtros personalizados con búsqueda
-    const where = {
-      AND: [admin, searchFilter]
-    }
-    const existingRecords = await this.Model.findMany({
-      where,
-      orderBy: { [sortBy]: order },
-      skip: offset,
-      take: limit
+    const whereClause = { ...filters, ...searchFilter}
+    const {rows: existingRecords, count: total} = await this.Model.scope(isAdmin ? 'allRecords' : 'enabledOnly').findAndCountAll({
+      limit: limit,
+      offset: offset,
+      where: whereClause,
+      distinct:true,
+      order: [[sortBy, order]]
     })
     if (existingRecords.length === 0) {
       if (this.dataEmpty) {
         existingRecords.push(this.dataEmpty)
       } else { throwError(\`This \${this.Model.name.toLowerCase()} \${searchField || 'entry'} do not exists\`, 404) }
     }
-
-    // Contamos el total de registros
-    const total = await this.Model.count({ where })
 
     return {
       info: {
@@ -78,13 +72,13 @@ export default class BaseRepository {
     }
   }
 
-  async getOne (data, uniqueField) {
+  async getOne (data, uniqueField, isAdmin=true) {
     try {
       const whereClause = {}
       if (uniqueField) {
         whereClause[uniqueField] = data
       }
-      const existingRecord = await this.Model.findUnique({ where: whereClause })
+      const existingRecord = await this.Model.scope(isAdmin ? 'allRecords' : 'enabledOnly').findOne({ where: whereClause })
       if (!existingRecord) {
         throwError(\`This \${this.Model.name.toLowerCase()} name do not exists\`, 404)
       }
@@ -96,7 +90,7 @@ export default class BaseRepository {
 
   async getById (id) {
     try {
-      const existingRecord = await this.Model.findUnique({ where: { id } })
+      const existingRecord = await this.Model.findByPk(id)
       if (!existingRecord) {
         throwError(\`This \${this.Model.name.toLowerCase()} name do not exists\`, 404)
       }
@@ -107,25 +101,20 @@ export default class BaseRepository {
   };
 
   async update (id, data) {
-    const dataFound = await this.Model.findUnique({ where: { id } })
+    const dataFound = await this.Model.findByPk(id)
     if (!dataFound) {
       throwError(\`\${this.Model.name} not found\`, 404)
     }
-    const upData = await this.Model.update({
-      where: { id },
-      data
-    })
+    const upData = await dataFound.update(data)
     return upData
   };
 
   async delete (id) {
-    const dataFound = await this.Model.findUnique({ where: { id } })
+    const dataFound = await this.Model.findByPk(id)
     if (!dataFound) {
       throwError(\`\${this.Model} not found\`, 404)
     }
-    await this.Model.delete({
-      where: { id }
-    })
+    await dataFound.destroy()
     return \`\${this.Model.name} deleted successfully\`
   };
 }
@@ -134,7 +123,7 @@ EOL
 # Crear archivo de test para Repositories
 cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.test.js" <<EOL
 import BaseRepository from './BaseRepository.js'
-import { prisma, initializeDatabase } from '../../Configs/database.js'
+import { User, startApp, closeDatabase } from '../../Configs/database.js'
 import * as info from './testHelpers/helperTest.help.js'
 import * as store from '../../../test/testHelpers/testStore.help.js'
 
@@ -149,37 +138,37 @@ class TestClass extends BaseRepository {
 describe('BaseRepository tests (abstract class)', () => {
   describe('Extension and instance tests', () => {
     it('should throw an error when attempting to instantiate the BaseRepository class directly.', () => {
-      expect(() => new BaseRepository(prisma.user)).toThrow(Error)
-      expect(() => new BaseRepository(prisma.user)).toThrow('Cannot instantiate an abstract class')
+      expect(() => new BaseRepository(User)).toThrow(Error)
+      expect(() => new BaseRepository(User)).toThrow('Cannot instantiate an abstract class')
     })
     it('should inherit and instantiate the class correctly without throwing an error', () => {
-      const instance = new TestClass(prisma.user)
+      const instance = new TestClass(User)
       // Verify that the instance is of both TestClass and BaseRepository
       expect(instance).toBeInstanceOf(TestClass)
       expect(instance).toBeInstanceOf(BaseRepository)
       // Verify that the Model property was correctly assigned
-      expect(instance.Model).toBe(prisma.user)
+      expect(instance.Model).toBe(User)
     })
   })
   describe('Unit tests for BaseRepository methods', () => {
     beforeAll(async () => {
-      await initializeDatabase()
+      await startApp(true, true)
     })
 
-    const tests = new TestClass(prisma.user)
-    const failed = new TestClass(prisma.user, info.dataEmpty)
+    const tests = new TestClass(User)
+    const failed = new TestClass(User, info.dataEmpty)
 
     describe('Metodo create.', () => {
       it('should create an element with the correct parameters.', async () => {
         const element = info.createData
         const uniqueField = 'email'
-        const response = await tests.create(element, uniqueField)
+        const resp = await tests.create(element, uniqueField)
+        const response = info.cleanData(resp)
         store.setStringId(response.id)
         expect(response).toEqual({
           id: expect.any(String),
           email: 'usuario@gmail.com',
-          password: 'L1234567',
-          role: 1,
+          role: 'User',
           picture: 'https://picture.com',
           username: null,
           enabled: true,
@@ -200,17 +189,17 @@ describe('BaseRepository tests (abstract class)', () => {
     })
     describe('"GET" methods: returning an array of elements or a single element', () => {
       it('"getAll" should return an array of elements', async () => {
-        const response = await tests.getAll()
+        const resp = await tests.getAll()
+        const response = resp.map(data => info.cleanData(data))
         expect(response).toEqual([
           {
             id: expect.any(String),
-            email: 'usuario@gmail.com',
-            username: null,
-            password: 'L1234567',
-            role: 1,
-            picture: 'https://picture.com',
-            enabled: true,
-            createdAt: expect.any(Date)
+          email: 'usuario@gmail.com',
+          role: 'User',
+          picture: 'https://picture.com',
+          username: null,
+          enabled: true,
+          createdAt: expect.any(Date)
           }
         ])
       })
@@ -218,26 +207,26 @@ describe('BaseRepository tests (abstract class)', () => {
         // const {searchField = '', search = null, filters = {}, sortBy = 'id', order = 'desc', page = 1, limit = 10
         const queryObject = { searchField: '', search: null, filters: {}, sortBy: 'id', order: 'desc', page: 1, limit: 10 }
         const isAdmin = false
-        const response = await tests.getWithPagination(queryObject, isAdmin)
-        expect(response.data).toEqual([{
-          id: expect.any(String),
+        const resp = await tests.getWithPagination(queryObject, isAdmin)
+        const response = resp.data.map(data=> info.cleanData(data))
+        expect(response).toEqual([{
+           id: expect.any(String),
           email: 'usuario@gmail.com',
-          password: 'L1234567',
-          role: 1,
+          role: 'User',
           picture: 'https://picture.com',
           username: null,
           enabled: true,
           createdAt: expect.any(Date)
         }])
-        expect(response.info).toEqual({ page: 1, total: 1, totalPages: 1 })
+        expect(resp.info).toEqual({ page: 1, total: 1, totalPages: 1 })
       })
       it('"getById" should return an object with a single element.', async () => {
-        const response = await tests.getById(store.getStringId())
+        const resp = await tests.getById(store.getStringId())
+        const response = info.cleanData(resp)
         expect(response).toEqual({
-          id: expect.any(String),
+             id: expect.any(String),
           email: 'usuario@gmail.com',
-          password: 'L1234567',
-          role: 1,
+          role: 'User',
           picture: 'https://picture.com',
           username: null,
           enabled: true,
@@ -258,12 +247,12 @@ describe('BaseRepository tests (abstract class)', () => {
       it('"getOne" should return an object with a single element', async () => {
         const uniqueField = 'email'
         const data = 'usuario@gmail.com'
-        const response = await tests.getOne(data, uniqueField)
+        const resp = await tests.getOne(data, uniqueField)
+        const response = info.cleanData(resp)
         expect(response).toEqual({
-          id: expect.any(String),
+            id: expect.any(String),
           email: 'usuario@gmail.com',
-          password: 'L1234567',
-          role: 1,
+          role: 'User',
           picture: 'https://picture.com',
           username: null,
           enabled: true,
@@ -286,7 +275,9 @@ describe('BaseRepository tests (abstract class)', () => {
       it('should update the element if parameters are correct', async () => {
         const id = store.getStringId()
         const newData = { email: 'perico@gmail.com', username: 'Perico de los palotes', enabled: false }
-        const response = await tests.update(id, newData)
+        const resp = await tests.update(id, newData)
+        console.log(resp)
+        const response = info.cleanData(resp)
         expect(response).toMatchObject(info.responseUpdData)
       })
     })
@@ -300,8 +291,7 @@ describe('BaseRepository tests (abstract class)', () => {
   })
 })
 afterAll(async () => {
-  await prisma.\$disconnect()
-  console.log('🛑 Closing database connection.')
+  await closeDatabase()
 })
 EOL
 
@@ -344,11 +334,35 @@ export const dataEmpty = {
 export const responseUpdData = {
   id: expect.any(String),
   email: 'perico@gmail.com',
-  password: expect.any(String),
-  role: 1,
+  role: 'User',
   picture: 'https://picture.com',
   username: 'Perico de los palotes',
   enabled: false,
   createdAt: expect.any(Date)
+}
+export function cleanData(d) {
+  return {
+    id: d.id,
+    email: d.email,
+    role: scope(d.role),
+    picture: d.picture,
+    username: d.username,
+    enabled: d.enabled,
+    createdAt: d.createdAt
+  }
+}
+function scope (role) {
+  switch (role) {
+    case 1:
+      return 'User'
+    case 2:
+      return 'Moderator'
+    case 3:
+      return 'Admin'
+    case 9:
+      return 'SuperAdmin'
+    default:
+      return 'User'
+  }
 }
 EOL

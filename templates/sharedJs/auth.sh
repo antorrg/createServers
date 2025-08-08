@@ -9,32 +9,32 @@ import crypto from 'crypto'
 import eh from '../../Configs/errorHandlers.js'
 import envConfig from '../../Configs/envConfig.js'
 
-
 export class Auth {
-  static generateToken (user, expiresIn){
+  static generateToken (user, expiresIn) {
     const intData = disguiseRole(user.role, 5)
     const jwtExpiresIn = expiresIn ?? Math.ceil(envConfig.ExpiresIn * 60 * 60)
-    const secret = envConfig.Secret;
+    const secret = envConfig.Secret
     return pkg.sign(
       { userId: user.id, email: user.email, internalData: intData },
       secret,
-      { expiresIn }
+      { expiresIn: jwtExpiresIn }
     )
   }
-    static generateEmailVerificationToken (user, expiresIn?) {
-        const userId = user.id
-        const secret = envConfig.Secret;
-        const jwtExpiresIn = expiresIn ?? '8h'
-      return pkg.sign(
-        { userId, type: 'emailVerification' },
-        secret,
-        { expiresIn }
-      )
-    }
 
-  static async verifyToken (req, res, next){
+  static generateEmailVerificationToken (user, expiresIn) {
+    const userId = user.id
+    const secret = envConfig.Secret
+    const jwtExpiresIn = expiresIn ?? '8h'
+    return pkg.sign(
+      { userId, type: 'emailVerification' },
+      secret,
+      { expiresIn: jwtExpiresIn }
+    )
+  }
+
+  static async verifyToken (req, res, next) {
     try {
-      let token = req.headers['x-access-token']  || req.headers.authorization
+      let token = req.headers['x-access-token'] || req.headers.authorization
       if (!token) {
         return next(eh.middError('Unauthorized access. Token not provided', 401))
       }
@@ -42,12 +42,12 @@ export class Auth {
         token = token.slice(6).trim()
       }
       if (token === '' || token === 'null' || token === 'undefined') {
-        return next(eh.middError('Missing token!', 401));
+        return next(eh.middError('Missing token!', 401))
       }
 
       const decoded = pkg.verify(token, envConfig.Secret)
 
-      //req.user = decoded
+      // req.user = decoded
       const userId = decoded.userId
       const userRole = recoveryRole(decoded.internalData, 5)
       req.userInfo = { userId, userRole }
@@ -61,24 +61,25 @@ export class Auth {
     }
   }
 
-    static async verifyEmailToken (req, res, next){
-        let token = req.query.token;
-        token= token.trim()
-         if (token === '' || token === 'null' || token === 'undefined') {
-        return next(eh.middError('Verification token missing!', 400));
-        }
-      try {
-        const decoded = pkg.verify(token, envConfig.Secret);
-        if (decoded.type !== 'emailVerification') {
-          return next(eh.middError('Invalid token type', 400));
-        }
-        // Adjunta el userId al request para el siguiente handler/service
-        req.userInfo = { userId: decoded.userId }
-        next();
-      } catch (error) {
-        return next(eh.middError('Invalid or expired token', 400));
+  static async verifyEmailToken (req, res, next) {
+    let token = req.query.token
+    token = token.trim()
+    if (token === '' || token === 'null' || token === 'undefined') {
+      return next(eh.middError('Verification token missing!', 400))
+    }
+    try {
+      const decoded = pkg.verify(token, envConfig.Secret)
+      if (decoded.type !== 'emailVerification') {
+        return next(eh.middError('Invalid token type', 400))
       }
+      // Adjunta el userId al request para el siguiente handler/service
+      req.userInfo = { userId: decoded.userId }
+      next()
+    } catch (error) {
+      return next(eh.middError('Invalid or expired token', 400))
+    }
   }
+
   static checkRole (allowedRoles) {
     return (req, res, next) => {
       const { userRole } = req.userInfo || {}
@@ -89,7 +90,6 @@ export class Auth {
       }
     }
   }
-
 }
 
 // Funciones auxiliares (pueden ir fuera de la clase)
@@ -269,6 +269,7 @@ EOL
 
 # Crear archivo de server para test
 cat > "$PROJECT_DIR/src/Shared/Auth/testHelpers/serverTest.help.js" <<EOL
+import express from 'express'
 import eh from '../../../Configs/errorHandlers.js'
 import {Auth} from '../Auth.js'
 

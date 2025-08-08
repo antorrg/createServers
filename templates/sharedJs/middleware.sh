@@ -283,9 +283,9 @@ import session from 'supertest'
 import serverTest from './testHelpers/serverTest.help.js'
 const agent = session(serverTest)
 
-describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y tipado de datos', () => {
-  describe('Metodo "ValidateFields". Validacion y tipado datos en body (POST y PUT) Objeto simple', () => {
-    it('deberia validar, tipar los parametros y permitir el paso si estos fueran correctos.', async () => {
+describe('Class "MiddlewareHandler". Static class for middleware. Data validation and type checking', () => {
+  describe('Method "ValidateFields". Validation and typing of body data (POST and PUT) - Flat object', () => {
+    it('should validate, typecast the parameters, and allow the request to proceed if they are correct...', async () => {
       const data = {
         name: 'name',
         active: 'true',
@@ -305,7 +305,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         price: 2.0
       })
     })
-    it('deberia validar, tipar y arrojar un error si faltara algun parametro.', async () => {
+    it('should validate, typecast, and return an error if a required parameter is missing.', async () => {
       const data = { 
         active: 'true',
         metadata: 'metadata',
@@ -317,7 +317,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         .expect(400)
       expect(response.body).toBe('Missing field: name at name')
     })
-    it('deberia validar, tipar y arrojar un error si no fuera posible tipar un parametro.', async () => {
+    it('should validate, attempt typecast, and return an error if a parameter cannot be typecast.', async () => {
       const data = {
         name:'name',
        active: 'true',
@@ -331,7 +331,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         .expect(400)
       expect(response.body).toBe('Invalid float value')
     })
-    it('deberia validar, tipar los parametros y permitir el paso quitando todo parametro no declarado.', async () => {
+    it('should validate, typecast the parameters, and strip out any undeclared fields.', async () => {
      const data = {
         name: 'name',
         active: 'true',
@@ -354,8 +354,8 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
       })
     })
   })
-  describe('Metodo "ValidateFields". Validacion y tipado datos en body (POST y PUT) Objeto anidado', () => {
-    it('deberia validar, tipar los parametros y permitir el paso si estos fueran correctos.', async () => {
+  describe('Method "ValidateFields". Validation and typing of body data (POST and PUT) - Nested object', () => {
+    it('should validate, typecast the parameters, and allow the request to proceed if they are correct.', async () => {
       const data = {
         name: 'name',
         active: 'true',
@@ -384,7 +384,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         metadata: 'metadata',
       })
     })
-    it('deberia validar, tipar y arrojar un error si faltara algun parametro.', async () => {
+    it('should validate, typecast, and return an error if a required parameter is missing.', async () => {
       const data = { 
         active: 'true',
         profile: {
@@ -401,7 +401,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         .expect(400)
       expect(response.body).toBe('Missing field: name at name')
     })
-    it('deberia validar, tipar y arrojar un error si no fuera posible tipar un parametro.', async () => {
+    it('should validate, attempt typecast, and return an error if a parameter cannot be typecast.', async () => {
       const data = {
       name: 'name',
         active: 'true',
@@ -419,7 +419,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         .expect(400)
       expect(response.body).toBe('Invalid float value')
     })
-    it('deberia validar, tipar los parametros y permitir el paso quitando todo parametro no declarado.', async () =>{     const data = {
+    it('should validate, typecast the parameters, and strip out any undeclared fields.', async () =>{     const data = {
         name: 'name',
         active: 'true',
         profile: {
@@ -448,8 +448,8 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
       })
     })
   })
-  describe('Metodo "ValidateFields". Validacion y tipado datos en body (POST y PUT) Objeto doblemente anidado', () => {
-    it('deberia validar, tipar los parametros y permitir el paso si estos fueran correctos.', async () => {
+  describe('Method "ValidateFields". Validation and typing of body data (POST and PUT) - Deeply nested object', () => {
+    it('should validate, typecast the parameters, and allow the request to proceed if they are correct.', async () => {
       const data = {
         name: 'name',
         active: 'true',
@@ -484,7 +484,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         metadata: 'metadata',
       })
     })
-    it('deberia validar, tipar y arrojar un error si faltara algun parametro.', async () => {
+    it('should validate, typecast, and return an error if a required parameter is missing.', async () => {
       const data = { 
         active: 'true',
         metadata: 'metadata',
@@ -496,7 +496,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         .expect(400)
       expect(response.body).toBe('Missing field: name at name')
     })
-    it('deberia validar, tipar y arrojar un error si no fuera posible tipar un parametro.', async () => {
+    it('should validate, attempt typecast, and return an error if a parameter cannot be typecast.', async () => {
          const data = {
         name: 'name',
         active: 'true',
@@ -517,7 +517,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         .expect(400)
       expect(response.body).toBe('Invalid integer value')
     })
-    it('deberia validar, tipar los parametros y permitir el paso quitando todo parametro no declarado.', async () => {
+    it('should validate, typecast the parameters, and strip out any undeclared fields.', async () => {
      const data = {
         name: 'name',
         active: 'true',
@@ -555,8 +555,8 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
       })
     })
   })
-   describe('Metodo "validateHeaders", validacion y guardado de headers (default: "Content-Type"', () => {
-    it('deberia fallar con un Content-Type incorrecto', async () => {
+   describe('Method "validateHeaders". Validation and persistence of headers (default: "Content-Type")', () => {
+    it('should fail if Content-Type is incorrect.', async () => {
       const res = await agent
         .post('/sanitize-headers')
         .set('Authorization', 'Bearer token')
@@ -564,7 +564,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
       expect(res.status).toBe(400)
       expect(res.body).toBe('Invalid Content-Type header')
     })
-     it('deberia pasar con Content-Type application/json correcto', async () => {
+     it('should pass with valid application/json Content-Type.', async () => {
       const res = await agent
         .post('/sanitize-headers')
         .set('Authorization', 'Bearer token')
@@ -582,8 +582,8 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
       expect(res.body.success).toBe(true)
     })
   })
-  describe('Metodo "validateQuery", validacion y tipado de queries en peticiones GET', () => {
-    it('deberia validar, tipar los parametros y permitir el paso si estos fueran correctos.', async () => {
+  describe('Method "validateQuery". Validation and typing of query parameters in GET requests', () => {
+    it('should validate, typecast query parameters, and allow the request to proceed if correct.', async () => {
       const response = await agent
         .get('/test/param?page=2&size=2.5&fields=PEPE&truthy=true')
         .expect('Content-Type', /json/)
@@ -596,7 +596,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         truthy: true
       })
     })
-    it('deberia llenar la query con valores por defecto si esta llegare vacía.', async () => {
+    it('should populate the query with default values if it is empty.', async () => {
       const response = await agent
         .get('/test/param')
         .expect('Content-Type', /json/)
@@ -609,14 +609,27 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         truthy: false
       })
     })
-    it('deberia arrojar un error si algun parametro incorrecto no se pudiere convertir.', async () => {
+    it('should return an error if any query parameter cannot be typecast.', async () => {
       const response = await agent
         .get('/test/param?page=pepe&size=2.5')
         .expect('Content-Type', /json/)
         .expect(400)
       expect(response.body).toBe('Invalid integer value')
     })
-    it('deberia eliminar los valores que excedan a los declarados.', async () => {
+    it('should escape potentially dangerous characters.', async () => {
+      const response = await agent
+        .get('/test/param?page=2&size=2.5&fields=<p>pepe</p>&truthy=true&demas=pepito')
+        .expect('Content-Type', /json/)
+        .expect(200)
+      expect(response.body.message).toBe('Passed middleware')
+      expect(response.body.validData).toEqual({
+        page: 2,
+        size: 2.5,
+        fields: '&lt;p&gt;pepe&lt;&#x2f;p&gt;',
+        truthy: true
+      })
+    })
+    it('should remove any undeclared query parameters.', async () => {
       const response = await agent
         .get('/test/param?page=2&size=2.5&fields=pepe&truthy=true&demas=pepito')
         .expect('Content-Type', /json/)
@@ -630,8 +643,8 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
       })
     })
   })
-  describe('Metodo "validateRegex", validacion de campo especifico a traves de un regex.', () => {
-    it('deberia permitir el paso si el parametro es correcto.', async () => {
+  describe('Method "validateRegex". Specific field validation using regular expressions.', () => {
+    it('should allow the request if the parameter matches the regex.', async () => {
       const data = { email: 'emaildeprueba@ejemplo.com' }
       const response = await agent
         .post('/test/user')
@@ -643,7 +656,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         email: 'emaildeprueba@ejemplo.com'
       })
     })
-    it('deberia arrojar un error si el parametro no es correcto.', async () => {
+    it('should return an error if the parameter does not match the regex.', async () => {
       const data = { email: 'emaildeprueba@ejemplocom' }
       const response = await agent
         .post('/test/user')
@@ -655,8 +668,8 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
       )
     })
   })
-  describe('Metodo "paramId", validacion de id en "param". Tipo de dato UUID v4', () => {
-    it('deberia permitir el paso si el Id es uuid válido.', async () => {
+  describe('Method "paramId". Validation of "param" ID as UUID v4', () => {
+    it('should allow the request if the ID is a valid UUID.', async () => {
       const id = 'c1d970cf-9bb6-4848-aa76-191f905a2edd'
       const response = await agent
         .get(\`/test/param/\${id}\`)
@@ -664,7 +677,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         .expect(200)
       expect(response.body.message).toBe('Passed middleware')
     })
-    it('deberia arrojar un error si el Id no es uuid válido.', async () => {
+    it('should return an error if the ID is not a valid UUID.', async () => {
       const id = 'c1d970cf-9bb6-4848-aa76191f905a2edd1'
       const response = await agent
         .get(\`/test/param/\${id}\`)
@@ -673,8 +686,8 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
       expect(response.body).toBe('Parametros no permitidos')
     })
   })
-  describe('Metodo "paramId", validacion de id en "param". Tipo de dato INTEGER.', () => {
-    it('deberia permitir el paso si el Id es numero entero válido', async () => {
+  describe('Method "paramId". Validation of "param" ID as INTEGER.', () => {
+    it('should allow the request if the ID is a valid integer.', async () => {
       const id = 1
       const response = await agent
         .get(\`/test/param/int/\${id}\`)
@@ -682,7 +695,7 @@ describe('Clase "MiddlewareHandler". Clase estatica de middlewares. Validacion y
         .expect(200)
       expect(response.body.message).toBe('Passed middleware')
     })
-    it('deberia arrojar un error si el Id no es numero entero válido.', async () => {
+    it('should return an error if the ID is not a valid integer.', async () => {
       const id = 'dkdi'
       const response = await agent
         .get(\`/test/param/int/\${id}\`)

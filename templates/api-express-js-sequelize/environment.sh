@@ -5,7 +5,7 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 # Crear archivos de entorno
 cat > "$PROJECT_DIR/.env.production" <<EOL
 PORT=3000
-DATABASE_URL=postgresql://postgres:password@localhost:5432/dbproduction
+DATABASE_URL=postgres://postgres:password@localhost:5432/dbproduction
 LOG_ERRORS=true
 JWT_EXPIRES_IN=1
 JWT_SECRET=
@@ -14,7 +14,7 @@ EOL
 
 cat > "$PROJECT_DIR/.env.development" <<EOL
 PORT=4000
-DATABASE_URL=postgresql://postgres:password@localhost:5432/dbDevelopment
+DATABASE_URL=postgres://postgres:password@localhost:5432/dbDevelopment
 LOG_ERRORS=true
 JWT_EXPIRES_IN=1
 JWT_SECRET=
@@ -23,7 +23,7 @@ EOL
 
 cat > "$PROJECT_DIR/.env.test" <<EOL
 PORT=8080
-DATABASE_URL=postgresql://postgres:password@localhost:5432/dbtest
+DATABASE_URL=postgres://postgres:password@localhost:5432/dbtest
 LOG_ERRORS=true
 JWT_EXPIRES_IN=1
 JWT_SECRET=
@@ -36,8 +36,4 @@ LOG_ERRORS=true
 JWT_EXPIRES_IN=1
 JWT_SECRET=
 USER_IMG="https://urlimageprueba.net"
-EOL
-cat > "$PROJECT_DIR/.env" <<EOL
-PORT=8080
-DATABASE_URL=postgresql://postgres:password@localhost:5432/prismatest
 EOL

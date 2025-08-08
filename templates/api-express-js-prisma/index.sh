@@ -11,12 +11,12 @@ import env from './src/Configs/envConfig.js'
 app.listen(env.Port, async () => {
   try {
   // startApp()
-    console.log(\`Servidor corriendo en http://localhost:\${env.Port}\nServer in \${env.Status}\`)
+    console.log(\`Server running on http://localhost:\${env.Port}\nServer in \${env.Status}\`)
     if (env.Status === 'development') {
-      console.log(\`Swagger: Vea y pruebe los endpoints en http://localhost:\${env.Port}/api-docs\`)
+      console.log(\`Swagger: View and test endpoints in http://localhost:\${env.Port}/api-docs\`)
     }
   } catch (error) {
-    console.error('Error conectando la DB: ', error)
+    console.error('Error conecting DB: ', error)
   }
 })
 EOL
@@ -29,7 +29,6 @@ cat > "$PROJECT_DIR/prisma/schema.prisma" <<EOL
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {

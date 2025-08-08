@@ -5,9 +5,9 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 # Crear el controlador
 cat > "$PROJECT_DIR/src/Shared/Controllers/BaseController.js" <<EOL
 import { catchController } from '../../Configs/errorHandlers.js'
+import { queryHelper } from './queryHelper.js'
 
 export class BaseController {
-
   constructor (service) {
     this.service = service
   }
@@ -23,31 +23,16 @@ export class BaseController {
   }
 
   getAll = catchController(async (req, res) => {
+    // console.log('a ver las queries: ', req.context.query)
     const response = await this.service.getAll()
     return BaseController.responder(res, 200, true, response.message, response.results)
   })
 
-  findWithPagination = catchController(async (req, res) => {
-    const { page, limit, sort, ...filters } = req.query
-    // Parse sort: admite ?sort=title,-1 o ?sort=title:desc
-    const sortObj: Record<string, 1 | -1> = {}
-    if (typeof sort === 'string') {
-    // Ejemplo: sort=title,-1  o  sort=title:desc
-      const [field, order] = sort.includes(':') ? sort.split(':') : sort.split(',')
-      if (field && order) {
-        const ord = order === '-1' || order === 'desc' ? -1 : 1
-        sortObj[field] = ord
-      }
-    }
-    const response = await this.service.findWithPagination({
-      page: Number(page),
-      limit: Number(limit),
-      sort: sortObj,
-      filters
-    })
+  getWithPagination = catchController(async (req, res) => {
+    const response = await this.service.getWithPagination(queryHelper(req.context.query))
     return BaseController.responder(res, 200, true, response.message, {
-      info: response.info,
-      results: response.results
+      info: response.results.info,
+      data: response.results.data
     })
   })
 
@@ -73,7 +58,7 @@ export class BaseController {
   delete = catchController(async (req, res) => {
     const { id } = req.params
     const response = await this.service.delete(id)
-    return BaseController.responder(res, 200, true, response.message, null)
+    return BaseController.responder(res, 200, true, response.message, response.results)
   })
 }
 EOL

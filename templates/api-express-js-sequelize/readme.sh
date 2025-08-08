@@ -52,32 +52,15 @@ Cada test unitario se encuentra junto al archivo que valida, y en la carpeta \`t
 
 ## Base de datos
 
-La aplicación está preparada para trabajar con **Prisma**.
-Para inicializar Prisma:
+La aplicación está preparada para trabajar con **Sequelize**.
+Para inicializar Sequelize:
 
-\`\`\`bash
-npx prisma init
-\`\`\`
+Crear dos bases de datos (minimo), una para pruebas y otra para desarrollo
 
-Si quieres definir un proveedor específico:
-
-\`\`\`bash
-npx prisma init --datasource-provider sqlite
-\`\`\`
-
-(Esto vale también para MongoDB, MySQL, etc. Por defecto Prisma está configurado para PostgreSQL).
+(Esto vale también para MySQL, etc. Por defecto Sequelize aquí está configurado para PostgreSQL).
 
 Esta API ya incluye la carpeta \`prisma\` y el archivo \`schema.prisma\` con un usuario por defecto.
 Aun así, antes de iniciar la aplicación debes ejecutar:
-
-\`\`\`bash
-npx prisma migrate dev
-npx prisma generate
-\`\`\`
-
-El archivo \`.env\` viene con extensión \`.md\` para evitar que Prisma lo inicialice directamente.
-Antes de usar la consola, cambia el nombre del archivo para que Prisma lo detecte y pueda leer la base de datos a migrar.
-Si la migración afectará tanto **tests** como **desarrollo**, asegúrate de cambiar la DB en este archivo.
 
 ---
 
