@@ -61,7 +61,6 @@ const startApp = async (synced=false, forced=false) => {
     console.log('🟢 Connection to Postgres established with Sequelize')
   } catch (error) {
     console.error('❌ Error connecting to Sequelize:', error.message)
-    process.exit(1) // Salida con error
   }
 }
 

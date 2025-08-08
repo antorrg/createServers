@@ -57,7 +57,6 @@ const startApp = async () => {
     console.log('Conexión a Postgres establecida con Prisma.')
   } catch (error) {
     console.error('Error al conectar con Prisma:', error.message)
-    process.exit(1) // Salida con error
   }
 }
 
