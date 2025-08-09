@@ -52,14 +52,13 @@ Cada test unitario se encuentra junto al archivo que valida, y en la carpeta \`t
 
 ## Base de datos
 
-La aplicación está preparada para trabajar con **Sequelize**.
-Para inicializar Sequelize:
+La aplicación está preparada para trabajar con **Mongoose**.
+Para inicializar Mongoose:
 
 Crear dos bases de datos (minimo), una para pruebas y otra para desarrollo
 
-(Esto vale también para MySQL, etc. Por defecto Sequelize aquí está configurado para PostgreSQL).
 
-Esta API ya incluye la carpeta \`prisma\` y el archivo \`schema.prisma\` con un usuario por defecto.
+Esta API ya incluye la carpeta \`models\` y el archivo \`user.js\` con un usuario por defecto.
 Aun así, antes de iniciar la aplicación debes ejecutar:
 
 ---

@@ -132,7 +132,6 @@ El script te guiará paso a paso para elegir:
 * Framework
 * ORM/ODM
 * Lenguaje
-* Configuración inicial
 
 ---
 

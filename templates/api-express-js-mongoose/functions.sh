@@ -26,7 +26,8 @@ EOL
 cat > "$PROJECT_DIR/test/User.spec.js" <<EOL
 import session from 'supertest'
 import app from '../src/app.js'
-import { User, startApp, closeDatabase } from '../src/Configs/database.js'
+import {startApp, closeDatabase } from '../src/Configs/database.js'
+import User from '../models/user.js'
 import * as store from './testHelpers/testStore.help.js'
 import { users } from './testHelpers/User-helpers/users.js'
 const agent = session(app)
@@ -80,7 +81,7 @@ describe('User, Integration test', () => {
       ])
     })
     it('should retrieve an array of users "getWithPagination" by filter', async () => {
-      const usersCreated = await User.bulkCreate(users)
+      const usersCreated = await User.insertMany(users)
       console.log(usersCreated.length)
       const response = await agent
         .get('/api/v1/user/pages?page=1&limit=4&sortBy=email&order=asc&searchField=email&search=Sincere@april.biz')

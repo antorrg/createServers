@@ -29,54 +29,45 @@ export default {
 EOL
 # Crear archivo de configuracion de base de datos Prisma
 cat > "$PROJECT_DIR/src/Configs/database.js" <<EOL
-import { Sequelize } from 'sequelize'
-import models from '../../models/index.js'
+import mongoose from 'mongoose'
 import env from './envConfig.js'
 
-const sequelize = new Sequelize(env.DatabaseUrl,{
-  dialect: "postgres",
-  logging: false,
-  native: false
-})
-
-Object.values(models).forEach((model) => model(sequelize))
-
-const {
-  User,
-} = sequelize.models
-
-//Relations here:
-
-
-
-
-//-------------------------------------------------------------
-const startApp = async (synced=false, forced=false) => {
+const connectDB = async () => {
   try {
-    await sequelize.authenticate()
-    if(synced === true){
-      await sequelize.sync({force: forced})
-      console.log(\`✔️  Database synced successfully!!\n Force: \${forced}\`)
-    }
-    console.log('🟢 Connection to Postgres established with Sequelize')
+    await mongoose.connect(env.DatabaseUrl)
+    console.log(\`Connecting database "\${nameOfDb(env.DatabaseUrl)}"\`)
   } catch (error) {
-    console.error('❌ Error connecting to Sequelize:', error.message)
-    process.exit(1) // Salida con error
+   throw error
+  }
+}
+function nameOfDb(name){
+ return name.split('/')[3]
+}
+
+const startApp = async (reset=false) => {
+  try {
+    await connectDB();
+    if(reset === true){
+      await mongoose.connection.dropDatabase();
+      console.log('✔️  Database reseted successfully!!')
+    }
+    console.log('🟢 Connection to MongoDb established with Mongoose')
+  } catch (error) {
+    console.error('❌ Error connecting to Mongoose:', error.message)
   }
 }
 
 const closeDatabase = async () => {
   try {
-    await sequelize.close()
+    await mongoose.disconnect()
     console.log('🛑 Closing connection to database.')
   } catch (error) {
     console.error('❌ Error closing database:', error)
   }
 }
 
+
 export {
-  User,
-  sequelize,
   startApp,
   closeDatabase
 }
@@ -85,11 +76,12 @@ EOL
 # Crear archivo de test de entorno y db
 cat > "$PROJECT_DIR/src/Configs/EnvDb.test.js" <<EOL
 import env from './envConfig.js'
-import { User, startApp, closeDatabase } from './database.js'
+import {startApp, closeDatabase} from './database.js'
+import User from '../../models/user.js'
 
 describe('Iniciando tests, probando variables de entorno del archivo "envConfig.js" y existencia de tablas en DB.', () => {
   beforeAll(async() => {
-    await startApp(true, true)
+    await startApp(true)
   })
   afterAll(async()=>{
     await closeDatabase()
@@ -99,14 +91,14 @@ describe('Iniciando tests, probando variables de entorno del archivo "envConfig.
     const formatEnvInfo = \`Servidor corriendo en: \${env.Status}\n\` +
                    \`Base de datos de testing: \${env.DatabaseUrl}\`
     expect(formatEnvInfo).toBe('Servidor corriendo en: test\n' +
-        'Base de datos de testing: postgres://postgres:password@localhost:5432/prismatest')
+        'Base de datos de testing: mongodb://127.0.0.1:27017/herethenameofdb')
   })
   it('deberia hacer un get a las tablas y obtener un arreglo vacio', async () => {
     const models = [
       User
     ]
     for (const model of models) {
-      const records = await model.findAll()
+      const records = await model.find()
       expect(Array.isArray(records)).toBe(true)
       expect(records.length).toBe(0)
     }

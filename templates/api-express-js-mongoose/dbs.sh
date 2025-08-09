@@ -5,36 +5,76 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 mkdir -p $PROJECT_DIR/models
 
 cat > "$PROJECT_DIR/models/user.js" <<EOL
-import {DataTypes} from 'sequelize'
+import mongoose from 'mongoose'
+import { applyBaseSchema } from './baseSchemaMixin.js'
 
-export default (sequelize)=>{
-  sequelize.define('User', {
-    id: {type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, allowNull: false, primaryKey: true},
-    email:  {type: DataTypes.STRING, unique: true, allowNull: false},
-    username: {type: DataTypes.STRING, allowNull: true },
-    password: {type: DataTypes.STRING, allowNull: false },
-    role: {type: DataTypes.SMALLINT, allowNull: false, defaultValue: 1, validate: {isIn: [[9, 1, 2,3]]}},
-    picture: { type: DataTypes.STRING, allowNull: false},
-    enabled: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
-    createdAt: {type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW}
-  },{
-        scopes: {
-            enabledOnly: {
-                where: {
-                    enabled: true
-                }
-            },
-            allRecords: {} // No aplica ningún filtro
-        },
-        timestamps: false,
-       
-    })
-}
+const userSchema = new mongoose.Schema(
+  {
+    email: {
+      type: String,
+      required: true,
+      unique: true
+    },
+    password: {
+      type: String,
+      required: true
+    },
+    picture: {
+      type: String,
+      required: true
+    },
+    username: {
+      type: String,
+      required: false
+    },
+    role: {
+      type: Number,
+      enum: [1, 2, 3, 9],
+      default: 1,
+      required: true
+    },
+  },
+  {
+    timestamps: true
+  }
+)
+
+applyBaseSchema(userSchema)
+
+const User = mongoose.model('User', userSchema)
+
+export default User
 EOL
-cat > "$PROJECT_DIR/models/index.js" <<EOL
-import User from './user.js'
 
-export default {
-    User,
+
+cat > "$PROJECT_DIR/models/baseSchemaMixin.js" <<EOL
+const baseSchemaFields = {
+  enabled: { type: Boolean, default: true },
+  deleted: { type: Boolean, default: false }
+}
+
+export function applyBaseSchema (schema) {
+  schema.add(baseSchemaFields)
+
+  // Garantiza que los campos estén siempre presentes
+  schema.pre('save', function (next) {
+    if (this.enabled === undefined) this.enabled = true
+    if (this.deleted === undefined) this.deleted = false
+    next()
+  })
+
+  // Método de instancia: soft delete
+  schema.methods.softDelete = function () {
+    this.deleted = true
+    this.enabled = false
+    return this.save()
+  }
+
+  // Método estático: encuentra solo activos
+  schema.statics.findEnabled = function (filter = {}) {
+    return this.find({ ...filter, enabled: true, deleted: false })
+  }
+
+  return schema
 }
 EOL

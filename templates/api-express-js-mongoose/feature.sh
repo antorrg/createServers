@@ -5,7 +5,7 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 # Crear el archivo user.routes.js en src
 cat > "$PROJECT_DIR/src/Features/user/user.routes.js" <<EOL
 import express from 'express'
-import { User} from '../../Configs/database.js'
+import  User from '../../../models/user.js'
 import { GeneralRepository } from '../../Shared/Repositories/GeneralRepository.js'
 import { BaseService } from '../../Shared/Services/BaseService.js'
 import { BaseController } from '../../Shared/Controllers/BaseController.js'
@@ -35,19 +35,19 @@ userRouter.get(
   userController.getWithPagination
 )
 userRouter.get('/:id',
-  MiddlewareHandler.paramId('id', MiddlewareHandler.ValidReg.UUIDv4),
+  MiddlewareHandler.paramId('id', MiddlewareHandler.ValidReg.OBJECT_ID),
   userController.getById
 )
 userRouter.put(
   '/:id',
-  MiddlewareHandler.paramId('id', MiddlewareHandler.ValidReg.UUIDv4),
+  MiddlewareHandler.paramId('id', MiddlewareHandler.ValidReg.OBJECT_ID),
   MiddlewareHandler.validateFields(vld.userUpdate),
   MiddlewareHandler.validateRegex(regexEmail, 'email'),
   userController.update
 )
 userRouter.delete(
   '/:id',
-  MiddlewareHandler.paramId('id', MiddlewareHandler.ValidReg.UUIDv4),
+  MiddlewareHandler.paramId('id', MiddlewareHandler.ValidReg.OBJECT_ID),
   userController.delete
 )
 
@@ -58,11 +58,11 @@ cat > "$PROJECT_DIR/src/Features/user/UserDTO.js" <<EOL
 export class UserDTO {
   static parser (d) {
     return {
-      id: d.id,
+      id: d._id.toString(),
       email: d.email,
       role: scope(d.role),
       picture: d.picture,
-      username: d.username,
+      username: d.username || null,
       enabled: d.enabled,
       createdAt: d.createdAt.toString()
     }

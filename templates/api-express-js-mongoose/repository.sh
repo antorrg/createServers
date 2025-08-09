@@ -5,61 +5,97 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 # Crear el repositorio
 cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.js" <<EOL
 import eh from '../../Configs/errorHandlers.js'
-import {Op} from 'sequelize'
+
 
 const throwError = eh.throwError
 // Esto es lo mas parecido a una clase abstracta, no se puede instanciar, solo se puede extender.
 
 export default class BaseRepository {
-  constructor (Model, dataEmpty = null) {
+  constructor(Model, dataEmpty = null) {
     if (new.target === BaseRepository) {
-      throw new Error('Cannot instantiate an abstract class')
+      throw new Error('Cannot instantiate an abstract class');
     }
-    this.Model = Model
-    this.dataEmpty = dataEmpty
+    this.Model = Model;
+    this.dataEmpty = dataEmpty;
   }
 
-  async create (data, uniqueField) {
+  async create(data, uniqueField) {
     try {
-      const whereClause = {}
+      const whereClause = {};
       if (uniqueField) {
-        whereClause[uniqueField] = data[uniqueField]
+        whereClause[uniqueField] = data[uniqueField];
       }
-      const existingRecord = await this.Model.findOne({ where: whereClause })
+      const existingRecord = await this.Model.findOne(whereClause);
 
       if (existingRecord) {
-        throwError(\`This \${this.Model.name.toLowerCase()} \${uniqueField || 'entry'} already exists\`, 400)
+        throwError(\`This \${this.Model.modelName.toLowerCase()} \${uniqueField || 'entry'} already exist\`, 400);
       }
-      const newRecord = await this.Model.create( data )
-
-      return newRecord
+      return await this.Model.create(data);
     } catch (error) {
-      throw error
+      throw error;
     }
   }
 
-  async getAll (isAdmin = false) {
-    const response = await this.Model.scope(isAdmin ? 'allRecords' : 'enabledOnly').findAll()
-    return response
+  async getAll() {
+    return await this.Model.find();
   }
-  
-  async getWithPagination (queryObject, isAdmin = false) {
-    const { searchField = '', search = null, sortBy = 'id', order = 'DESC', page = 1, limit = 10, filters={} } = queryObject
-    const offset = (page - 1) * limit
-    const searchFilter = search && searchField ? { [searchField]: { [Op.iLike]: \`%\${search}%\`} } : {}
-    // Combinamos filtros personalizados con búsqueda
-    const whereClause = { ...filters, ...searchFilter}
-    const {rows: existingRecords, count: total} = await this.Model.scope(isAdmin ? 'allRecords' : 'enabledOnly').findAndCountAll({
-      limit: limit,
-      offset: offset,
-      where: whereClause,
-      distinct:true,
-      order: [[sortBy, order]]
-    })
-    if (existingRecords.length === 0) {
+
+  async getWithPagination(queryObject, isAdmin = false) {
+    const {
+      searchField = '',
+      search = null,
+      sortBy = '_id',
+      order = 'desc',
+      page = 1,
+      limit = 10,
+      filters = {}
+    } = queryObject;
+
+    const skip = (page - 1) * limit;
+
+    const searchFilter =
+      search && searchField
+        ? { [searchField]: { \$regex: search, \$options: 'i' } }
+        : {};
+
+    const whereClause = {
+      ...filters,
+      ...searchFilter,
+      ...(isAdmin ? {} : { enabled: true })
+    };
+
+    const pipeline = [
+      { \$match: whereClause },
+      {
+        \$facet: {
+          totalCount: [{ \$count: 'count' }],
+          data: [
+            { \$sort: { [sortBy]: order === 'asc' ? 1 : -1 } },
+            { \$skip: skip },
+            { \$limit: limit }
+          ]
+        }
+      },
+      {
+        \$project: {
+          total: { \$ifNull: [{ \$arrayElemAt: ['\$totalCount.count', 0] }, 0] },
+          data: 1
+        }
+      }
+    ];
+
+    const result = await this.Model.aggregate(pipeline);
+    const { total, data } = result[0] || { total: 0, data: [] };
+
+    if (data.length === 0) {
       if (this.dataEmpty) {
-        existingRecords.push(this.dataEmpty)
-      } else { throwError(\`This \${this.Model.name.toLowerCase()} \${searchField || 'entry'} do not exists\`, 404) }
+        data.push(this.dataEmpty);
+      } else {
+        throwError(
+          \`This \${this.Model.modelName.toLowerCase()} \${searchField || 'entry'} does not exist\`,
+          404
+        );
+      }
     }
 
     return {
@@ -68,62 +104,65 @@ export default class BaseRepository {
         page,
         totalPages: Math.ceil(total / limit)
       },
-      data: existingRecords
-    }
+      data
+    };
   }
 
-  async getOne (data, uniqueField, isAdmin=true) {
-    try {
-      const whereClause = {}
-      if (uniqueField) {
-        whereClause[uniqueField] = data
-      }
-      const existingRecord = await this.Model.scope(isAdmin ? 'allRecords' : 'enabledOnly').findOne({ where: whereClause })
-      if (!existingRecord) {
-        throwError(\`This \${this.Model.name.toLowerCase()} name do not exists\`, 404)
-      }
-      return existingRecord
-    } catch (error) {
-      throw error
+  async getOne(data, uniqueField, isAdmin = true) {
+    const whereClause = {};
+    if (uniqueField) {
+      whereClause[uniqueField] = data;
     }
-  };
-
-  async getById (id) {
-    try {
-      const existingRecord = await this.Model.findByPk(id)
-      if (!existingRecord) {
-        throwError(\`This \${this.Model.name.toLowerCase()} name do not exists\`, 404)
-      }
-      return existingRecord
-    } catch (error) {
-      throw error
+    if (!isAdmin) {
+      whereClause.enabled = true;
     }
-  };
 
-  async update (id, data) {
-    const dataFound = await this.Model.findByPk(id)
+    const existingRecord = await this.Model.findOne(whereClause);
+    if (!existingRecord) {
+      throwError(
+        \`This \${this.Model.modelName.toLowerCase()} does not exist\`,
+        404
+      );
+    }
+    return existingRecord;
+  }
+
+  async getById(id) {
+    const existingRecord = await this.Model.findById(id);
+    if (!existingRecord) {
+      throwError(
+        \`This \${this.Model.modelName.toLowerCase()} does not exist\`,
+        404
+      );
+    }
+    return existingRecord;
+  }
+
+  async update(id, data) {
+    const dataFound = await this.Model.findById(id);
     if (!dataFound) {
-      throwError(\`\${this.Model.name} not found\`, 404)
+      throwError(\`\${this.Model.modelName} not found\`, 404);
     }
-    const upData = await dataFound.update(data)
-    return upData
-  };
+    Object.assign(dataFound, data);
+    return await dataFound.save();
+  }
 
-  async delete (id) {
-    const dataFound = await this.Model.findByPk(id)
+  async delete(id) {
+    const dataFound = await this.Model.findById(id);
     if (!dataFound) {
-      throwError(\`\${this.Model} not found\`, 404)
+      throwError(\`\${this.Model.modelName} not found\`, 404);
     }
-    await dataFound.destroy()
-    return \`\${this.Model.name} deleted successfully\`
-  };
+    await dataFound.deleteOne();
+    return \`\${this.Model.modelName} deleted successfully\`;
+  }
 }
 EOL
 
 # Crear archivo de test para Repositories
 cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.test.js" <<EOL
 import BaseRepository from './BaseRepository.js'
-import { User, startApp, closeDatabase } from '../../Configs/database.js'
+import { startApp, closeDatabase } from '../../Configs/database.js'
+import User from '../../../models/user.js'
 import * as info from './testHelpers/helperTest.help.js'
 import * as store from '../../../test/testHelpers/testStore.help.js'
 
@@ -152,7 +191,7 @@ describe('BaseRepository tests (abstract class)', () => {
   })
   describe('Unit tests for BaseRepository methods', () => {
     beforeAll(async () => {
-      await startApp(true, true)
+      await startApp(true)
     })
 
     const tests = new TestClass(User)
@@ -182,7 +221,7 @@ describe('BaseRepository tests (abstract class)', () => {
           await tests.create(element, uniqueField)
         } catch (error) {
           expect(error).toBeInstanceOf(Error)
-          expect(error.message).toBe('This user email already exists')
+          expect(error.message).toBe('This user email already exist')
           expect(error.status).toBe(400)
         }
       })
@@ -235,13 +274,13 @@ describe('BaseRepository tests (abstract class)', () => {
       })
       it('"getById" should throw an error if the ID is incorrect or the object is not enabled when admin is false.', async () => {
         try {
-          const id = 'beb3a2a0-d0db-4b6b-966d-47f035ce5670'
+          const id = '6896a22aab1bb621cd23d7f1'
           await tests.getById(id)
           throw new Error('Expect an error but nothing happened')
         } catch (error) {
           expect(error).toBeInstanceOf(Error)
           expect(error.status).toBe(404)
-          expect(error.message).toBe('This user name do not exists')
+          expect(error.message).toBe('This user does not exist')
         }
       })
       it('"getOne" should return an object with a single element', async () => {
@@ -267,7 +306,7 @@ describe('BaseRepository tests (abstract class)', () => {
         } catch (error) {
           expect(error).toBeInstanceOf(Error)
           expect(error.status).toBe(404)
-          expect(error.message).toBe('This user name do not exists')
+          expect(error.message).toBe('This user does not exist')
         }
       })
     })
@@ -276,7 +315,7 @@ describe('BaseRepository tests (abstract class)', () => {
         const id = store.getStringId()
         const newData = { email: 'perico@gmail.com', username: 'Perico de los palotes', enabled: false }
         const resp = await tests.update(id, newData)
-        console.log(resp)
+        //console.log(resp)
         const response = info.cleanData(resp)
         expect(response).toMatchObject(info.responseUpdData)
       })
@@ -342,11 +381,11 @@ export const responseUpdData = {
 }
 export function cleanData(d) {
   return {
-    id: d.id,
+    id: d._id.toString(),
     email: d.email,
     role: scope(d.role),
     picture: d.picture,
-    username: d.username,
+    username: d.username || null,
     enabled: d.enabled,
     createdAt: d.createdAt
   }

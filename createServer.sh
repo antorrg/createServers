@@ -76,7 +76,7 @@ case $opcion in
     source "$TEMPLATES_DIR/api-express-js-sequelize/main.sh" "$PROYECTO_VALIDO"
     ;;
   4)
-    source "$TEMPLATES_DIR/api-express-mongoose.sh" "$PROYECTO_VALIDO"
+    source "$TEMPLATES_DIR/api-express-js-mongoose/main.sh" "$PROYECTO_VALIDO"
     ;;
   5)
     source "$TEMPLATES_DIR/api-express-seqFunction.sh" "$PROYECTO_VALIDO"

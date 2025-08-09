@@ -127,7 +127,8 @@ EOL
 # Crear el  test para el Servicio 
 cat > "$PROJECT_DIR/src/Shared/Services/BaseService.test.js" <<EOL
 import BaseRepository from '../Repositories/BaseRepository.js'
-import { User, startApp, closeDatabase } from '../../Configs/database.js'
+import { startApp, closeDatabase } from '../../Configs/database.js'
+import User from '../../../models/user.js'
 import { BaseService } from './BaseService.js'
 import * as fns from '../../../test/generalFunctions.js'
 import * as store from '../../../test/testHelpers/testStore.help.js'
@@ -150,7 +151,7 @@ class TestClass extends BaseRepository {
 
 describe('Unit tests for the GeneralService class: CRUD.', () => {
   beforeAll(async () => {
-    await startApp(true, true)
+    await startApp(true)
   })
 
   const testing = new TestClass(User, dataEmptyExample)
@@ -187,7 +188,7 @@ describe('Unit tests for the GeneralService class: CRUD.', () => {
         await servParse.create(element)
       } catch (error) {
         expect(error).toBeInstanceOf(Error)
-        expect(error.message).toBe('This user email already exists')
+        expect(error.message).toBe('This user email already exist')
         expect(error.status).toBe(400)
       }
     })
@@ -278,11 +279,11 @@ afterAll(async () => {
 })
 function cleanData(d) {
   return {
-    id: d.id,
+    id: d._id.toString(),
     email: d.email,
     role: scope(d.role),
     picture: d.picture,
-    username: d.username,
+    username: d.username ||null,
     enabled: d.enabled,
     createdAt: d.createdAt
   }
