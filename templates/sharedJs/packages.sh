@@ -17,8 +17,7 @@ cat > "$PROJECT_DIR/package.json" <<EOL
     "lint": "standard",
     "lint:fix": "standard --fix",
     "gen:schema": "node src/Shared/Swagger/schemas/tools/generateSchema.js",
-    "validate:schemas" : "node src/Shared/Middlewares/helpers/createSchema/index.js",
-    "validate:schemas": "node src/Shared/Middlewares/helpers/createSchema/index.js"
+    "validate:schema" : "validate-schemas"
   },
   "dependencies": {
   },
