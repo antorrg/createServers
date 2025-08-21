@@ -15,7 +15,6 @@ source "$SHAREDJS_DIR/auth.sh" "$PROYECTO_VALIDO"
 source "$SHAREDJS_DIR/errors.sh" "$PROYECTO_VALIDO"
 source "$SHAREDJS_DIR/express.sh" "$PROYECTO_VALIDO"
 source "$SHAREDJS_DIR/commonJest.sh" "$PROYECTO_VALIDO"
-source "$SHAREDJS_DIR/middleware.sh" "$PROYECTO_VALIDO"
 source "$SHAREDJS_DIR/controller.sh" "$PROYECTO_VALIDO"
 source "$SHAREDJS_DIR/swagger/swaggerOptions.sh" "$PROYECTO_VALIDO"
 source "$SHAREDJS_DIR/swagger/schemaJson.sh" "$PROYECTO_VALIDO"
@@ -53,7 +52,7 @@ spinner() {
   tput cnorm  # Muestra el cursor
 }
 echo "Instalando dependencias:..."
-npm install cross-env@latest cors@latest dotenv@latest express@latest helmet@latest morgan@latest @prisma/client@latest prisma@latest uuid@latest validator jsonwebtoken
+npm install cross-env@latest cors@latest dotenv@latest express@latest helmet@latest morgan@latest @prisma/client@latest prisma@latest jsonwebtoken req-valid-express
 echo "Instalando dependencias de desarrollo, aguarde un momento..."
 npm install @babel/core @babel/preset-env babel-jest nodemon@latest standard@latest supertest@latest jest@latest swagger-jsdoc swagger-ui-express inquirer -D
   
