@@ -113,11 +113,11 @@ function recoveryRole (str, position) {
 EOL
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Crear el archivo de test
-cat > "$PROJECT_DIR/src/Shared/Auth/Auth.test.js" <<EOL
+cat > "$PROJECT_DIR/test/Shared/Auth/Auth.test.js" <<EOL
 import session from 'supertest'
 import serverTest from './testHelpers/serverTest.help.js'
 const agent = session(serverTest)
-import { Auth } from './Auth.js'
+import { Auth } from '../../../src/Shared/Auth.js'
 import {setUserToken, getUserToken, setAdminToken, getAdminToken } from '../../../test/testHelpers/testStore.help.js'
 
 describe('"Auth" class. Jsonwebtoken middlewares. Unit tests.', () => {
@@ -268,10 +268,10 @@ EOL
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 # Crear archivo de server para test
-cat > "$PROJECT_DIR/src/Shared/Auth/testHelpers/serverTest.help.js" <<EOL
+cat > "$PROJECT_DIR/test/Shared/Auth/serverTest.help.js" <<EOL
 import express from 'express'
-import eh from '../../../Configs/errorHandlers.js'
-import {Auth} from '../Auth.js'
+import eh from '../../../src/Configs/errorHandlers.js'
+import {Auth} from '../../../src/Shared/Auth/Auth.js'
 
 
 

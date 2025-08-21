@@ -125,12 +125,12 @@ export class BaseService {
 }
 EOL
 # Crear el  test para el Servicio 
-cat > "$PROJECT_DIR/src/Shared/Services/BaseService.test.js" <<EOL
-import BaseRepository from '../Repositories/BaseRepository.js'
-import { prisma, initializeDatabase } from '../../Configs/database.js'
-import { BaseService } from './BaseService.js'
-import * as fns from '../../../test/generalFunctions.js'
-import * as store from '../../../test/testHelpers/testStore.help.js'
+cat > "$PROJECT_DIR/test/Shared/Services/BaseService.test.js" <<EOL
+import BaseRepository from '../../../src/Shared/Repositories/BaseRepository.js'
+import { prisma, initializeDatabase } from '../../jest.setup.js'
+import { BaseService } from '../../../src/Shared/Services/BaseService.js'
+import * as fns from '../../generalFunctions.js'
+import * as store from '../../testHelpers/testStore.help.js'
 
 const dataEmptyExample = {
   id: 'none',

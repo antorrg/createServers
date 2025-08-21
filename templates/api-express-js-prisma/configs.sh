@@ -38,10 +38,7 @@ EOL
 # Crear archivo de configuracion de base de datos Prisma
 cat > "$PROJECT_DIR/src/Configs/database.js" <<EOL
 import { PrismaClient } from '@prisma/client'
-import { execSync } from 'child_process'
 import env from './envConfig.js'
-
-import fs from 'fs'
 
 const prisma = new PrismaClient({
   datasources: {
@@ -54,43 +51,22 @@ const prisma = new PrismaClient({
 const startApp = async () => {
   try {
     await prisma.\$connect()
-    console.log('Conexión a Postgres establecida con Prisma.')
+    console.log('🧪 Conexión a Postgres establecida con Prisma.')
   } catch (error) {
-    console.error('Error al conectar con Prisma:', error.message)
-  }
-}
-
-const initializeDatabase = async () => { // Solo tests (borra la db)
-  try {
-    await prisma.\$connect()
-    execSync('npx prisma db push --force-reset', { stdio: 'inherit' })
-    console.log('🧪 Conectando prisma')
-  } catch (error) {
-    console.error('❌ Error al iniciar la base de datos:', error)
-  }
-}
-
-const closeDatabase = async () => {
-  try {
-    await prisma.\$disconnect()
-    console.log('🛑 Cerrando conexión con la base de datos.')
-  } catch (error) {
-    console.error('❌ Error al cerrar la base de datos:', error)
+    console.error('❌ Error al conectar con Prisma:', error.message)
   }
 }
 
 export {
   prisma,
   startApp,
-  initializeDatabase,
-  closeDatabase
 }
 EOL
 
 # Crear archivo de test de entorno y db
-cat > "$PROJECT_DIR/src/Configs/EnvDb.test.js" <<EOL
-import env from './envConfig.js'
-import { prisma } from './database.js'
+cat > "$PROJECT_DIR/test/Configs/EnvDb.test.js" <<EOL
+import env from '../../src/Configs/envConfig.js'
+import { prisma } from '../../src/Configs/database.js'
 
 describe('Iniciando tests, probando variables de entorno del archivo "envConfig.js" y existencia de tablas en DB.', () => {
   afterAll(() => {
@@ -114,4 +90,35 @@ describe('Iniciando tests, probando variables de entorno del archivo "envConfig.
     }
   })
 })
+EOL
+#Crear archivo jest.setup.js
+cat > "$PROJECT_DIR/test/jest.setup.js" <<EOL
+import {prisma } from '../src/Configs/database.js'
+import { execSync } from 'child_process'
+
+
+const initializeDatabase = async () => { // Solo tests (borra la db)
+  try {
+    await prisma.\$connect()
+    execSync('npx prisma db push --force-reset', { stdio: 'inherit' })
+    console.log('🧪 Conectando prisma')
+  } catch (error) {
+    console.error('❌ Error al iniciar la base de datos:', error)
+  }
+}
+
+const closeDatabase = async () => {
+  try {
+    await prisma.\$disconnect()
+    console.log('🛑 Cerrando conexión con la base de datos.')
+  } catch (error) {
+    console.error('❌ Error al cerrar la base de datos:', error)
+  }
+}
+
+export {
+  prisma,  
+  initializeDatabase,
+  closeDatabase
+}
 EOL

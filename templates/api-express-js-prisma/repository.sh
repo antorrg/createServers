@@ -132,11 +132,11 @@ export default class BaseRepository {
 EOL
 
 # Crear archivo de test para Repositories
-cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.test.js" <<EOL
-import BaseRepository from './BaseRepository.js'
-import { prisma, initializeDatabase } from '../../Configs/database.js'
+cat > "$PROJECT_DIR/test/Shared/Repositories/BaseRepository.test.js" <<EOL
+import BaseRepository from '../../../src/Shared/Repositories/BaseRepository.js'
+import { prisma } from '../../jest.setup.js'
 import * as info from './testHelpers/helperTest.help.js'
-import * as store from '../../../test/testHelpers/testStore.help.js'
+import * as store from '../../testHelpers/testStore.help.js'
 
 class TestClass extends BaseRepository {
   constructor (Model, dataEmpty) {
@@ -315,7 +315,7 @@ export class GeneralRepository extends BaseRepository {
 }
 EOL
 
-cat > "$PROJECT_DIR/src/Shared/Repositories/testHelpers/helperTest.help.js" <<EOL
+cat > "$PROJECT_DIR/test/Shared/Repositories/helperTest.help.js" <<EOL
 export const createData = {
   email: 'usuario@gmail.com',
   password: 'L1234567',

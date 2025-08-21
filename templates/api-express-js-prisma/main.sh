@@ -8,8 +8,8 @@ SHAREDJS_DIR="$SCRIPT_DIR/../sharedJs"
 # Crear la estructura del proyecto
 mkdir -p "$PROJECT_DIR"
 
-mkdir -p $PROJECT_DIR/src/{Configs,Shared,Shared/Middlewares,Shared/Middlewares/testHelpers,Shared/Controllers,Shared/Auth,Shared/Auth/testHelpers,Shared/Services,Shared/Repositories,Shared/Repositories/testHelpers,Shared/Swagger,Shared/Swagger/schemas,Shared/Swagger/schemas/tools,Shared/Swagger/schemas/components,Features,Features/user,Features/product}
-mkdir -p $PROJECT_DIR/test/testHelpers/User-helpers
+mkdir -p $PROJECT_DIR/src/{Configs,Shared,Shared/Controllers,Shared/Auth,Shared/Services,Shared/Repositories,Shared/Swagger,Shared/Swagger/schemas,Shared/Swagger/schemas/tools,Shared/Swagger/schemas/components,Features,Features/user,Features/product}
+mkdir -p $PROJECT_DIR/test/{Shared,Configs,Features,Shared/Auth,Shared/Services,Shared/Repositories,testHelpers/User-helpers}
 
 source "$SHAREDJS_DIR/auth.sh" "$PROYECTO_VALIDO"
 source "$SHAREDJS_DIR/errors.sh" "$PROYECTO_VALIDO"
