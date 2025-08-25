@@ -82,8 +82,8 @@ EOL
 
 # Crear archivo de test de entorno y db
 cat > "$PROJECT_DIR/test/Configs/EnvDb.test.js" <<EOL
-import env from './envConfig.js'
-import { User, startApp, closeDatabase } from './database.js'
+import env from "../../src/Configs/envConfig.js";
+import { User, startApp, closeDatabase } from "../../src/Configs/database.js";
 
 describe('Iniciando tests, probando variables de entorno del archivo "envConfig.js" y existencia de tablas en DB.', () => {
   beforeAll(async() => {

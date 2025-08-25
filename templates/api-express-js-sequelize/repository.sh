@@ -122,10 +122,10 @@ EOL
 
 # Crear archivo de test para Repositories
 cat > "$PROJECT_DIR/test/Shared/Repositories/BaseRepository.test.js" <<EOL
-import BaseRepository from './BaseRepository.js'
-import { User, startApp, closeDatabase } from '../../Configs/database.js'
-import * as info from './testHelpers/helperTest.help.js'
-import * as store from '../../../test/testHelpers/testStore.help.js'
+import BaseRepository from "../../../src/Shared/Repositories/BaseRepository.js";
+import { User, startApp, closeDatabase } from "../../../src/Configs/database.js";
+import * as info from "./helperTest.help.js";
+import * as store from "../../testHelpers/testStore.help.js";
 
 class TestClass extends BaseRepository {
   constructor (Model, dataEmpty) {
