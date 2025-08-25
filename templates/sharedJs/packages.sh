@@ -13,11 +13,11 @@ cat > "$PROJECT_DIR/package.json" <<EOL
   "scripts": {
     "start": "cross-env NODE_ENV=production node index.js",
     "dev": "cross-env NODE_ENV=development nodemon index.js",
-    "unit:test": "cross-env NODE_ENV=test jest --detectOpenHandles",
-    "lint": "standard",
-    "lint:fix": "standard --fix",
+    "unit:test": "cross-env NODE_ENV=test jest --selectProjects unit --detectOpenHandles",
+    "integration:test": "cross-env NODE_ENV=test jest --selectProjects integration --detectOpenHandles",
+    "lint": "standard --fix",
     "gen:schema": "node src/Shared/Swagger/schemas/tools/generateSchema.js",
-    "validate:schema" : "validate-schemas"
+    "validate:schema": "validate-schema"
   },
   "dependencies": {
   },

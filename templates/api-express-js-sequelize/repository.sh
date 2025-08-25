@@ -121,7 +121,7 @@ export default class BaseRepository {
 EOL
 
 # Crear archivo de test para Repositories
-cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.test.js" <<EOL
+cat > "$PROJECT_DIR/test/Shared/Repositories/BaseRepository.test.js" <<EOL
 import BaseRepository from './BaseRepository.js'
 import { User, startApp, closeDatabase } from '../../Configs/database.js'
 import * as info from './testHelpers/helperTest.help.js'
@@ -305,7 +305,7 @@ export class GeneralRepository extends BaseRepository {
 }
 EOL
 
-cat > "$PROJECT_DIR/src/Shared/Repositories/testHelpers/helperTest.help.js" <<EOL
+cat > "$PROJECT_DIR/test/Shared/Repositories/helperTest.help.js" <<EOL
 export const createData = {
   email: 'usuario@gmail.com',
   password: 'L1234567',

@@ -6,6 +6,19 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 cat > "$PROJECT_DIR/jest.config.js" <<'EOL'
 export default {
   testEnvironment: 'node',
+  projects: [
+    {
+      displayName: 'unit',
+      testMatch: ['<rootDir>/test/**/*.test.js'],
+      testPathIgnorePatterns: ['/int/'],
+      
+    },
+    {
+      displayName: 'integration',
+      testMatch: ['<rootDir>/test/**/*.int.spec.js'],
+      //setupFilesAfterEnv: ['./test/jest.setup.js']
+    }
+  ]
 }
 EOL
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@

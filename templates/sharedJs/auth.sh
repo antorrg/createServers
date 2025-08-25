@@ -115,10 +115,10 @@ EOL
 # Crear el archivo de test
 cat > "$PROJECT_DIR/test/Shared/Auth/Auth.test.js" <<EOL
 import session from 'supertest'
-import serverTest from './testHelpers/serverTest.help.js'
+import serverTest from './serverTest.help.js'
 const agent = session(serverTest)
-import { Auth } from '../../../src/Shared/Auth.js'
-import {setUserToken, getUserToken, setAdminToken, getAdminToken } from '../../../test/testHelpers/testStore.help.js'
+import { Auth } from '../../../src/Shared/Auth/Auth.js'
+import {setUserToken, getUserToken, setAdminToken } from '../../testHelpers/testStore.help.js'
 
 describe('"Auth" class. Jsonwebtoken middlewares. Unit tests.', () => {
     describe('Auth.generateToken, Auth.verifyToken. ', () => {

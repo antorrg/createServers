@@ -24,13 +24,12 @@ export function queryHelper (queries) {
 }
 EOL
 
-cat > "$PROJECT_DIR/test/User.spec.js" <<EOL
+cat > "$PROJECT_DIR/test/Features/User.int.spec.js" <<EOL
 import session from 'supertest'
-import app from '../src/app.js'
-import { prisma, initializeDatabase, closeDatabase } from '../src/Configs/database.js'
-import * as store from './testHelpers/testStore.help.js'
-import { users } from './testHelpers/User-helpers/users.js'
-const agent = session(app)
+import app from '../../src/app.js'
+import { prisma, initializeDatabase, closeDatabase } from '../jest.setup.js'
+import * as store from '../testHelpers/testStore.help.js'
+import { users } from '../testHelpers/User-helpers/users.js'
 
 describe('User, Integration test', () => {
   beforeAll(async () => {
@@ -182,7 +181,6 @@ describe('User, Integration test', () => {
   })
   afterAll(async () => {
     await closeDatabase()
-    console.log('Closed')
   })
 })
 EOL

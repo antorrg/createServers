@@ -14,20 +14,19 @@ const configEnv = {
 const envFile = configEnv[process.env.NODE_ENV] || '.env.development'
 dotenv.config({ path: envFile })
 
-const Status = Object.keys(configEnv).find(key => configEnv[key] === envFile) || 'production'
 const { PORT, DATABASE_URL, LOG_ERRORS, JWT_EXPIRES_IN, JWT_SECRET, USER_IMG } = process.env
 
 export default {
   Port: PORT,
   DatabaseUrl: DATABASE_URL,
   LogErrors: LOG_ERRORS,
-  Status,
+  Status: process.env.NODE_ENV,
   ExpiresIn: JWT_EXPIRES_IN,
   Secret: JWT_SECRET,
   UserImg: USER_IMG
 }
 EOL
-# Crear archivo de configuracion de base de datos Prisma
+# Crear archivo de configuracion de base de datos Sequelize
 cat > "$PROJECT_DIR/src/Configs/database.js" <<EOL
 import { Sequelize } from 'sequelize'
 import models from '../../models/index.js'
@@ -82,7 +81,7 @@ export {
 EOL
 
 # Crear archivo de test de entorno y db
-cat > "$PROJECT_DIR/src/Configs/EnvDb.test.js" <<EOL
+cat > "$PROJECT_DIR/test/Configs/EnvDb.test.js" <<EOL
 import env from './envConfig.js'
 import { User, startApp, closeDatabase } from './database.js'
 
@@ -98,7 +97,7 @@ describe('Iniciando tests, probando variables de entorno del archivo "envConfig.
     const formatEnvInfo = \`Servidor corriendo en: \${env.Status}\n\` +
                    \`Base de datos de testing: \${env.DatabaseUrl}\`
     expect(formatEnvInfo).toBe('Servidor corriendo en: test\n' +
-        'Base de datos de testing: postgres://postgres:password@localhost:5432/prismatest')
+        'Base de datos de testing: postgres://postgres:password@localhost:5432/dbtest')
   })
   it('deberia hacer un get a las tablas y obtener un arreglo vacio', async () => {
     const models = [

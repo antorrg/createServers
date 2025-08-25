@@ -127,7 +127,7 @@ EOL
 # Crear el  test para el Servicio 
 cat > "$PROJECT_DIR/test/Shared/Services/BaseService.test.js" <<EOL
 import BaseRepository from '../../../src/Shared/Repositories/BaseRepository.js'
-import { prisma, initializeDatabase } from '../../jest.setup.js'
+import { prisma, initializeDatabase, closeDatabase } from '../../jest.setup.js'
 import { BaseService } from '../../../src/Shared/Services/BaseService.js'
 import * as fns from '../../generalFunctions.js'
 import * as store from '../../testHelpers/testStore.help.js'
@@ -274,8 +274,7 @@ describe('Unit tests for the GeneralService class: CRUD.', () => {
   })
 })
 afterAll(async () => {
-  await prisma.\$disconnect()
-  console.log('🛑 Closing database connection.')
+  await prisma.closeDatabase()
 })
 function cleanData(d) {
   if (d.enabled !== true) return null

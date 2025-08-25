@@ -134,8 +134,8 @@ EOL
 # Crear archivo de test para Repositories
 cat > "$PROJECT_DIR/test/Shared/Repositories/BaseRepository.test.js" <<EOL
 import BaseRepository from '../../../src/Shared/Repositories/BaseRepository.js'
-import { prisma } from '../../jest.setup.js'
-import * as info from './testHelpers/helperTest.help.js'
+import { prisma, initializeDatabase, closeDatabase } from '../../jest.setup.js'
+import * as info from './helperTest.help.js'
 import * as store from '../../testHelpers/testStore.help.js'
 
 class TestClass extends BaseRepository {
@@ -300,8 +300,7 @@ describe('BaseRepository tests (abstract class)', () => {
   })
 })
 afterAll(async () => {
-  await prisma.\$disconnect()
-  console.log('🛑 Closing database connection.')
+  await closeDatabase()
 })
 EOL
 
