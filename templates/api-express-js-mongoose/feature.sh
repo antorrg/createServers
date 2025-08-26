@@ -11,7 +11,7 @@ import { BaseService } from '../../Shared/Services/BaseService.js'
 import { BaseController } from '../../Shared/Controllers/BaseController.js'
 import vld from './validHelpers/index.js'
 import { UserDTO, dataEmpty } from './UserDTO.js'
-import MiddlewareHandler from '../../Shared/Middlewares/MiddlewareHandler.js'
+import {Validator} from 'req-valid-express'
 
 const userRep = new GeneralRepository(User, dataEmpty)
 const userService = new BaseService(userRep, 'User', 'email', UserDTO.parser, false, null)
@@ -22,8 +22,8 @@ const userRouter = express.Router()
 
 userRouter.post(
   '/create',
-  MiddlewareHandler.validateFields(vld.userCreate),
-  MiddlewareHandler.validateRegex(regexEmail, 'email'),
+  Validator.validateBody(vld.userCreate),
+  Validator.validateRegex(regexEmail, 'email'),
   userController.create
 )
 userRouter.get('/',
@@ -31,23 +31,23 @@ userRouter.get('/',
 )
 userRouter.get(
   '/pages',
-  MiddlewareHandler.validateQuery(vld.userQueries),
+  Validator.validateQuery(vld.userQueries),
   userController.getWithPagination
 )
 userRouter.get('/:id',
-  MiddlewareHandler.paramId('id', MiddlewareHandler.ValidReg.OBJECT_ID),
+  Validator.paramId('id', Validator.ValidReg.OBJECT_ID),
   userController.getById
 )
 userRouter.put(
   '/:id',
-  MiddlewareHandler.paramId('id', MiddlewareHandler.ValidReg.OBJECT_ID),
-  MiddlewareHandler.validateFields(vld.userUpdate),
-  MiddlewareHandler.validateRegex(regexEmail, 'email'),
+  Validator.paramId('id', Validator.ValidReg.OBJECT_ID),
+  Validator.validateBody(vld.userUpdate),
+  Validator.validateRegex(regexEmail, 'email'),
   userController.update
 )
 userRouter.delete(
   '/:id',
-  MiddlewareHandler.paramId('id', MiddlewareHandler.ValidReg.OBJECT_ID),
+  Validator.paramId('id', Validator.ValidReg.OBJECT_ID),
   userController.delete
 )
 
