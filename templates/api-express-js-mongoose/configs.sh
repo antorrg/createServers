@@ -14,14 +14,13 @@ const configEnv = {
 const envFile = configEnv[process.env.NODE_ENV] || '.env.development'
 dotenv.config({ path: envFile })
 
-const Status = Object.keys(configEnv).find(key => configEnv[key] === envFile) || 'production'
 const { PORT, DATABASE_URL, LOG_ERRORS, JWT_EXPIRES_IN, JWT_SECRET, USER_IMG } = process.env
 
 export default {
   Port: PORT,
   DatabaseUrl: DATABASE_URL,
   LogErrors: LOG_ERRORS,
-  Status,
+  Status:process.env.NODE_ENV,
   ExpiresIn: JWT_EXPIRES_IN,
   Secret: JWT_SECRET,
   UserImg: USER_IMG
@@ -74,9 +73,9 @@ export {
 EOL
 
 # Crear archivo de test de entorno y db
-cat > "$PROJECT_DIR/src/Configs/EnvDb.test.js" <<EOL
-import env from './envConfig.js'
-import {startApp, closeDatabase} from './database.js'
+cat > "$PROJECT_DIR/test/Configs/EnvDb.test.js" <<EOL
+import env from "../../src/Configs/envConfig.js";
+import {startApp, closeDatabase} from '../../src/Configs/database.js'
 import User from '../../models/user.js'
 
 describe('Iniciando tests, probando variables de entorno del archivo "envConfig.js" y existencia de tablas en DB.', () => {
