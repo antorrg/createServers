@@ -1,6 +1,10 @@
 #!/bin/bash
 PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 
+# Crear carpeta contenedora
+
+mkdir -p $PROJECT_DIR/src/Shared/Services
+
 # Crear el servicio
 cat > "$PROJECT_DIR/src/Shared/Services/BaseService.ts" <<EOL
 import { throwError } from '../../Configs/errorHandlers.js'
@@ -105,7 +109,7 @@ export class BaseService<TDTO, TCreate, TUpdate> {
 }
 EOL
 # Crear el  imageService para el Servicio 
-cat > "$PROJECT_DIR/src/Shared/Services/ImgsServicet.ts" <<EOL
+cat > "$PROJECT_DIR/src/Shared/Services/ImgsService.ts" <<EOL
 //import { XXXXServices } from '../../ExternalProviders/xxxx.js' //Crear el servicio...
 import MockImgsService from './MockImgsService.js'
 import envConfig from '../../Configs/envConfig.js'
@@ -235,11 +239,11 @@ EOL
 # Crear el  test para el Servicio 
 cat > "$PROJECT_DIR/src/Shared/Services/BaseService.test.ts" <<EOL
 import { beforeAll, afterAll, describe, it, expect } from 'vitest'
-import { startUp, closeDatabase, User } from '../../Configs/seqDb.ts'
-import { SequelizeRepository } from '../Repositories/SequelizeRepository.ts'
-import * as help from '../Repositories/sequelizeHelper.help.ts'
-import * as store from '../../../test/helpers/testStore.help.ts'
-import prepareTestImages from '../../../test/helpers/prepareTestImages.ts'
+import { startUp, closeDatabase, User } from '../../Configs/database.ts'
+import { BaseRepository } from '../Repositories/BaseRepository.ts'
+import * as help from '../Repositories/testHelpers/testHelp.help.ts'
+import * as store from '../../../test/testHelpers/testStore.help.ts'
+import prepareTestImages from '../../../test/testHelpers/prepareTestImages.help.ts'
 import { BaseService } from './BaseService.ts'
 import ImgsService from './ImgsService.ts'
 
@@ -252,7 +256,7 @@ describe('BaseService unit test', () => {
   afterAll(async () => {
     await closeDatabase()
   })
-  const repo = new SequelizeRepository(User, help.parser, 'email')
+  const repo = new BaseRepository(User, help.parser, 'User', 'email')
   const test = new BaseService(repo, ImgsService, true, 'picture')
   describe('Create method', () => {
     it('should create a element', async () => {
@@ -263,11 +267,8 @@ describe('BaseService unit test', () => {
         email: 'user@email.com',
         password: '123456',
         nickname: 'userTest',
-        typeId: 'dni',
-        numberId: '12345678',
-        username: 'user',
+        name: 'user',
         picture: imagesCopied[0],
-        role: 'Usuario',
         enabled: true
       })
       store.setStringId(response.results.id)
@@ -296,11 +297,8 @@ describe('BaseService unit test', () => {
           email: 'user@email.com',
           password: '123456',
           nickname: 'userTest',
-          typeId: 'dni',
-          numberId: '12345678',
-          username: 'user',
+          name: 'user',
           picture: imagesCopied[0],
-          role: 'Usuario',
           enabled: true
         })
       })
@@ -314,11 +312,8 @@ describe('BaseService unit test', () => {
           email: 'user15@email.com',
           password: '123456',
           nickname: 'userTest15',
-          typeId: 'dni',
-          numberId: '12345678',
-          username: 'Fifteen',
+          name: 'Fifteen',
           picture: 'https://picsum.photos/200?random=15',
-          role: 'Usuario',
           enabled: false
         })
       })
@@ -330,15 +325,15 @@ describe('BaseService unit test', () => {
         expect(response.message).toBe('Total records: 16. Users retrieved successfully')
         expect(response.info).toEqual({ total: 16, page: 1, limit: 10, totalPages: 2 })
         expect(response.data.length).toBe(10)
-        expect(response.data.map(a => a.username)).toEqual(['user', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'])// Order
+        expect(response.data.map(a => a.name)).toEqual(['user', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'])// Order
       })
       it('Should retrieve filtered and sorted elements', async () => {
-        const queryObject = { page: 1, limit: 10, query: { enabled: false }, order: { username: 'ASC' } } as const
+        const queryObject = { page: 1, limit: 10, query: { enabled: false }, order: { name: 'ASC' } } as const
         const response = await test.getWithPages(queryObject)
         expect(response.message).toBe('Total records: 3. Users retrieved successfully')
         expect(response.info).toEqual({ total: 3, page: 1, limit: 10, totalPages: 1 })
         expect(response.data.length).toBe(3)
-        expect(response.data.map(a => a.username)).toEqual(['Fifteen', 'Seven', 'Six'])// Order
+        expect(response.data.map(a => a.name)).toEqual(['Fifteen', 'Seven', 'Six'])// Order
       })
     })
   })

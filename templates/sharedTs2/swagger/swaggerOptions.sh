@@ -1,6 +1,8 @@
 #!/bin/bash
 
 PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
+#,Shared/Swagger,Shared/Swagger/schemas,Shared/Swagger/schemas/tools,Shared/Swagger/schemas/components,
+mkdir -p $PROJECT_DIR/src/Shared/Swagger
 
 cat > "$PROJECT_DIR/src/Shared/Swagger/swaggerOptions.ts" <<EOL
 import envConfig from '../../Configs/envConfig.js'

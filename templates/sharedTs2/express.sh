@@ -48,7 +48,11 @@ declare global {
   }
 }
 EOL
+
 #Crear carpeta y archivo de tipos genericos de repository 
+
+mkdir -p $PROJECT_DIR/src/Shared/Interfaces
+
 cat > "$PROJECT_DIR/src/Shared/Interfaces/base.interface.ts" <<EOL
 export interface IRepositoryResponse<T> {
   message: string
@@ -67,10 +71,13 @@ export interface IPaginatedOptions<TDTO> {
   order?: Partial<Record<keyof TDTO, Direction>>
 }
 
+export interface PaginateInfo { total: number, page: number, limit: number, totalPages: number }
+
 export interface IPaginatedResults<TDTO> {
   message: string
-  info: { total: number, page: number, limit: number, totalPages: number }
+  info: PaginateInfo
   data: TDTO[]
+
 }
 export type TUpdate<T> = Partial<Omit<T, 'id'>>
 export interface IBaseRepository<TDTO, TCreate, TUpdate> {
@@ -83,10 +90,10 @@ export interface IBaseRepository<TDTO, TCreate, TUpdate> {
   delete: (id: string | number) => Promise<IRepositoryResponse<string>>
 }
 export interface IExternalImageDeleteService<T> {
-  deleteImage: (imageInfo: T) => Promise<boolean>
+  deleteImage: (imageInfo: T) => Promise<string|undefined>
 }
 export const mockImageDeleteService: IExternalImageDeleteService<any> = {
-  deleteImage: async (_imageInfo: any) => await Promise.resolve(true)
+  deleteImage: async (_imageInfo: any) => await Promise.resolve('true')
 }
 EOL
 

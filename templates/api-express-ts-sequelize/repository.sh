@@ -2,349 +2,437 @@
 PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 
 # Crear BaseRepositories.ts
+mkdir -p $PROJECT_DIR/src/Shared/{Repositories,Repositories/testHelpers}
+
 cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.ts" <<EOL
-import { Model, Document, FilterQuery } from 'mongoose'
-import eh from '../../Configs/errorHandlers.js'
-import { IData } from '../types/common.js'
+import type { Model, ModelStatic } from 'sequelize'
+import type { IBaseRepository, IRepositoryResponse, IPaginatedOptions, IPaginatedResults, Direction } from '../Interfaces/base.interface.js'
+import { throwError } from '../../Configs/errorHandlers.js'
 
-interface Pagination {
-  page?: number
-  limit?: number
-  filters?: Record<string, any>
-}
-interface ResponseWithPagination<U> {
-  message: string
-  results: U[]
-  info: {
-    totalPages: number
-    total: number
-    page: number
-    limit: number
-    count: number
-  }
-}
-
-export class BaseRepository <T extends Document, U extends IData = IData> {
-  protected readonly model: Model<T>
-  protected readonly modelName?: string
-  protected readonly whereField?: keyof U
+export class BaseRepository<
+  TDTO, TCreate, TUpdate = Partial<TCreate>,
+> implements IBaseRepository<TDTO, TCreate, TUpdate> {
   constructor (
-    model: Model<T>,
-    modelName?: string,
-    whereField?: keyof U
+    private readonly Model: ModelStatic<Model>,
+    private readonly parserFn: (model: Model) => TDTO,
+    private readonly modelName: string,
+    private readonly whereField: keyof TDTO & string
   ) {
-    this.model = model
-    this.modelName = modelName
+    this.Model = Model
+    this.parserFn = parserFn
     this.whereField = whereField
   }
 
-  async getAll (): Promise< { message: string, results: U[] } > {
-    const docs = await this.model.find()
-    if (docs == null) {
-      eh.throwError(\`\${this.modelName} not found\`, 404)
-    }
+  async getAll (field?: unknown, whereField?: keyof TDTO | string): Promise<IRepositoryResponse<TDTO[]>> {
+    const whereClause = (field && whereField) ? { [whereField]: field } : {}
+    const models = await this.Model.findAll({ where: whereClause })
     return {
-      message: \`\${this.modelName} retrieved\`,
-      results: docs.map(doc => doc.toObject()  as unknown as U)
+      message: \`\${this.Model.name} records retrieved successfully\`,
+      results: models.map(this.parserFn)
     }
   }
 
-  async findWithPagination (query: Pagination & { sort?: Record<string, 1 | -1> }): Promise<ResponseWithPagination<U>> {
-    const page = query.page ?? 1
-    const limit = query.limit ?? 10
-    const skip = (page - 1) * limit
+  async getWithPages (options?: IPaginatedOptions<TDTO>): Promise<IPaginatedResults<TDTO>> {
+    const page = options?.page ?? 1
+    const limit = options?.limit ?? 10
 
-    // const filters = (query.filters != null) || {}
-    const filters = (query.filters != null) && typeof query.filters === 'object' ? query.filters : {}
-    const sort = (query.sort != null) && typeof query.sort === 'object' ? query.sort : {}
-    const total = await this.model.countDocuments(filters)
-    const docs = await this.model.find(filters).sort(sort).skip(skip).limit(limit)
-    const totalPages = Math.ceil(total / limit)
+    const whereClause = options?.query ? options.query : {}
 
+    const offset = (page - 1) * limit
+
+    // 🔽 Transformar Record<keyof TDTO, Direction> en [['field', 'ASC']]
+    const orderClause = options?.order
+      ? (Object.entries(options.order).map(([field, dir]) => [
+          field,
+          dir === 1 ? 'ASC' : dir === -1 ? 'DESC' : dir
+        ]) as Array<[string, 'ASC' | 'DESC']>)
+      : undefined
+
+    const { rows, count } = await this.Model.findAndCountAll({
+      where: whereClause,
+      offset,
+      limit,
+      distinct: true,
+      order: orderClause
+      // order: options?.order ? [[options.order?.field as string, options.order?.direction]] as Order : undefined
+    })
+
+    const data = rows.map(this.parserFn)
     return {
-      message: \`\${this.modelName} list retrieved\`,
-      results: docs.map(doc=> doc.toObject()  as unknown as U),
+      message: \`Total records: \${count}. \${this.Model.name}s retrieved successfully\`,
       info: {
-        total,
+        total: count,
         page,
-        totalPages,
         limit,
-        count: docs.length
-      }
+        totalPages: Math.ceil(count / limit)
+      },
+      data
+
     }
   }
 
-  async getById (id: string): Promise<{ message: string, results: U }> {
-    const doc = await this.model.findById(id)
-    if (doc == null) {
-      eh.throwError(\`\${this.modelName} not found\`, 404)
-    }
+  async getById (id: string | number): Promise<IRepositoryResponse<TDTO>> {
+    const model = await this.Model.findByPk(id)
+    if (!model) throwError(\`\${this.Model.name} not found\`, 404)
     return {
-      message: \`\${this.modelName} retrieved\`,
-      results: doc!.toObject()  as unknown as U
+      message: \`\${this.Model.name} record retrieved successfully\`,
+      results: this.parserFn(model!)
     }
   }
 
-  async getOne<K extends keyof T> (value: T[K], field?: K): Promise<{ message: string, results: U }> {
-    const fieldSearch = field ?? this.whereField
-    if (!fieldSearch) {
-      throw new Error('No field specified for search')
-    }
-    const doc = await this.model.findOne({ [fieldSearch]: value } as FilterQuery<U>)
-    if (doc == null) {
-      eh.throwError(\`This \${this.modelName} not found\`, 404)
-    }
+  async getByField (
+    field?: unknown,
+    whereField: keyof TDTO | string = this.whereField
+  ): Promise<IRepositoryResponse<TDTO>> {
+    if (field == null) throwError(\`No value provided for \${whereField.toString()}\`, 400)
+    const model = await this.Model.findOne({
+      where: { [whereField]: field } as any
+    })
+    if (!model) throwError(\`The \${whereField.toString()} "\${field}" was not found\`, 404)
     return {
-      message: \`\${this.modelName} retrieved\`,
-      results: doc!.toObject()  as unknown as U
+      message: \`\${this.Model.name} record retrieved successfully\`,
+      results: this.parserFn(model!)
     }
   }
 
-  async create (data: Partial<T>): Promise<{ message: string, results: U }> {
-    if (!this.whereField) {
-      throw new Error('No field specified for search')
+  async create (data: TCreate): Promise<IRepositoryResponse<TDTO>> {
+    const exists = await this.Model.findOne({
+      where: { [this.whereField]: (data as any)[this.whereField] } as any
+    })
+    if (exists) {
+      throwError(
+        \`\${this.Model.name} with \${this.whereField} \${(data as any)[this.whereField]} already exists\`,
+        400
+      )
     }
-    if (!(this.whereField in data)) { // Permite valores falsy válidos (como 0 o '')
-      throw new Error(\`Missing value for field "\${String(this.whereField)}" in data\`)
-    }
-    const fieldValue = data[this.whereField as keyof T]
-    const doc = await this.model.findOne({ [this.whereField]: fieldValue } as FilterQuery<T>)
-    if (doc != null) {
-      eh.throwError(\`This \${this.modelName} already exists\`, 400)
-    }
-
-    const newDoc = await this.model.create(data)
-
+    const model = await this.Model.create(data as any)
     return {
-      message: \`\${this.modelName} created successfully\`,
-      results: newDoc!.toObject()  as unknown as U
+      message: \`\${this.Model.name} \${(data as any)[this.whereField]} created successfully\`,
+      results: this.parserFn(model)
     }
   }
 
-  async update (id: string, data: Partial<T>): Promise<{ message: string, results: U }> {
-    const updated = await this.model.findByIdAndUpdate(id, data, { new: true })
-    if (updated == null) {
-      eh.throwError(\`\${this.modelName} not found\`, 404)
-    }
-
+  async update (id: string | number, data: TUpdate): Promise<IRepositoryResponse<TDTO>> {
+    const model = await this.Model.findByPk(id)
+    if (!model) throwError(\`\${this.Model.name} not found\`, 404)
+    const updated = await model!.update(data as Partial<TDTO>)
     return {
-      message: \`\${this.modelName} updated successfully\`,
-      results: updated!.toObject()  as unknown as U
+      message: \`\${this.Model.name} record updated successfully\`,
+      results: this.parserFn(updated)
     }
   }
 
-  async delete (id: string): Promise<{ message: string }> {
-    await this.model.findByIdAndDelete(id)
-
+  async delete (id: string | number): Promise<IRepositoryResponse<string>> {
+    const model = await this.Model.findByPk(id)
+    if (!model) throwError(\`\${this.Model.name} not found\`, 404)
+    const value = (model as any)[this.whereField]
+    await model!.destroy()
     return {
-      message: \`\${this.modelName} deleted successfully\`
+      message: \`\${value} deleted successfully\`,
+      results: ''
     }
   }
 }
 EOL
 # Crear BaseRepository.test.ts
 cat > "$PROJECT_DIR/src/Shared/Repositories/BaseRepository.test.ts" <<EOL
-import { BaseRepository } from './BaseRepository.js'
-import Test, {ITest} from '../../../test/testHelpers/modelTest.help.js'
-import { infoClean, resultParsedCreate, newData } from './testHelpers/testHelp.help.js'
-import { setStringId, getStringId } from '../../../test/testHelpers/testStore.help.js'
-import mongoose from 'mongoose'
-import { testSeeds } from './testHelpers/seeds.help.js'
-import { resetDatabase } from '../../../test/jest.setup.js'
+import { beforeAll, afterAll, describe, it, expect} from 'vitest'
+import {startUp, closeDatabase, User} from '../../Configs/database.ts'
+import {BaseRepository} from './BaseRepository.ts'
+import * as help from './testHelpers/testHelp.help.ts'
+import * as store from '../../../test/testHelpers/testStore.help.ts'
 
-/* constructor (
-    model: Model<T>,
-    useImages = false,
-    deleteImages?: typeof mockDeleteFunction,
-    parserFunction?: ParserFunction<T>,
-    modelName?: string,
-    whereField?: keyof T
-  ) */
 
-const test = new BaseRepository<ITest>(Test, 'Test', 'title')
-describe('Unit tests for the BaseRepository class: CRUD operations.', () => {
-  afterAll(async () => {
-    await resetDatabase()
-  })
-  describe('The "create" method for creating a service', () => {
-    it('should create an item with the correct parameters', async () => {
-      const element = { title: 'page', count: 5, picture: 'https//pepe.com' }
-      const response = await test.create(element)
-      setStringId(response.results.id)
-      expect(response.message).toBe('Test created successfully')
-      // expect(response.results instanceof mongoose.Model).toBe(true);
-      expect(infoClean(response.results)).toEqual(resultParsedCreate)
-    })
-  })
-  describe('"GET" methods. Return one or multiple services..', () => {
-    beforeAll(async () => {
-      await Test.insertMany(testSeeds)
-    })
-    it('"getAll" method: should return an array of services', async () => {
-      const response = await test.getAll()
-      expect(response.message).toBe('Test retrieved')
-      expect(response.results.length).toBe(26)
-    })
-    it('"findWithPagination" method: should return an array of services', async () => {
-      const queryObject = { page: 1, limit: 10, filters: {}, sort: {} }
-      const response = await test.findWithPagination(queryObject)
-      expect(response.message).toBe('Test list retrieved')
-      expect(response.info).toEqual({ page: 1, limit: 10, totalPages: 3, count: 10, total: 26 })
-      expect(response.results.length).toBe(10)
-    })
-    it('"findWithPagination" method should return page 2 of results', async () => {
-      const queryObject = { page: 2, limit: 10, filters: {}, sort: {} }
-      const response = await test.findWithPagination(queryObject)
-      expect(response.results.length).toBeLessThanOrEqual(10)
-      expect(response.info.page).toBe(2)
-    })
-    it('"findWithPagination" method should return sorted results (by title desc)', async () => {
-      const queryObject = { page: 1, limit: 5, sort: { title: -1 } as Record<string, 1 | -1> }
-      const response = await test.findWithPagination(queryObject)
-      const titles = response.results.map(r => r.title)
-      const sortedTitles = [...titles].sort().reverse()
-      expect(titles).toEqual(sortedTitles)
-    })
 
-    it('"getById" method: should return an service', async () => {
-      const id = getStringId()
-      const response = await test.getById(id)
-      expect(infoClean(response.results)).toEqual(resultParsedCreate)
+describe('BaseRepository unit test', () => {
+    beforeAll(async()=>{
+        await startUp(true, true)
     })
-    it('"getOne" method: should return an service', async () => {
-       const title= 'page'
-      const response = await test.getOne(title)
-      expect(infoClean(response.results)).toMatchObject(resultParsedCreate)
+    afterAll(async()=>{
+    await closeDatabase()
     })
-  })
-  describe('The "update" method - Handles removal of old images from storage.', () => {
-    it('should update the document without removing any images', async () => {
-      const id = getStringId()
-      const data = newData
-      const response = await test.update(id, data)
-      expect(response.message).toBe('Test updated successfully')
-      expect(response.results).toMatchObject({
-        id: expect.any(String) as string,
-        title: 'page',
-        picture: 'https://donJose.com',
-        count: 5,
-        enabled: true
+    const test = new BaseRepository(User, help.parser, 'User', 'email')
+    describe('Create method', () => {
+        it('should create a element', async() => {
+            const response = await test.create(help.dataCreate)
+            expect(response.message).toBe('User user@email.com created successfully')
+            expect(response.results).toEqual({
+                id: expect.any(String),
+                email: 'user@email.com',
+                password: '123456',
+                nickname: 'userTest',
+                name: 'user',
+                picture: 'https://picsum.photos/200?random=16',
+                enabled: true
+            })
+            store.setStringId(response.results.id)
+        })
+    })
+    describe('Get methods', () => {
+        describe('"getAll" method', () => {
+        it('should retrieve an array of elements', async() => {
+            await help.createSeedRandomElements(User,help.usersSeed)
+            const response = await test.getAll()
+            expect(response.message).toBe('User records retrieved successfully')
+            expect(response.results.length).toBe(16)
+        })
+        it('Should retrieve an array of elements filtered by query', async() => {
+             const response = await test.getAll('false', 'enabled')
+            expect(response.message).toBe('User records retrieved successfully')
+            expect(response.results.length).toBe(3)
+        })
+        })
+        describe('"getById" method', () => { 
+            it('Should retrieve an element by Id', async() => {
+             const response = await test.getById(store.getStringId())
+            expect(response.message).toBe('User record retrieved successfully')
+            expect(response.results).toEqual({
+                id: expect.any(String),
+                email: 'user@email.com',
+                password: '123456',
+                nickname: 'userTest',
+                name: 'user',
+                picture: 'https://picsum.photos/200?random=16',
+                enabled: true
+            })
+          })
+        })
+        describe('"getByField" method', () => { 
+            it('Should retrieve an element by field', async() => {
+             const response = await test.getByField("user15@email.com", 'email')
+            expect(response.message).toBe('User record retrieved successfully')
+            expect(response.results).toEqual({
+                id: expect.any(String),
+                email: "user15@email.com",
+                password: "123456",
+                nickname: "userTest15",
+                name: "Fifteen",
+                picture: "https://picsum.photos/200?random=15",
+                enabled: false
+            })
+            
+        })
       })
+      describe('"getWithPages" method', () => { 
+         it('Should retrieve an array of paginated elements', async() => {
+            const queryObject = {page:1, limit:10,}
+             const response = await test.getWithPages(queryObject)
+            expect(response.message).toBe('Total records: 16. Users retrieved successfully')
+            expect(response.info).toEqual({ total: 16, page: 1, limit: 10, totalPages: 2 })
+            expect(response.data.length).toBe(10)
+             expect(response.data.map(a => a.name)).toEqual(["user", "One","Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"])// Order
+        })
+         it('Should retrieve filtered and sorted elements', async() => {
+            const queryObject = {page:1, limit:10,query:{enabled: false}, order: { name : 'ASC'}} as const
+             const response = await test.getWithPages(queryObject)
+            expect(response.message).toBe('Total records: 3. Users retrieved successfully')
+            expect(response.info).toEqual({ total: 3, page: 1, limit: 10, totalPages: 1 })
+            expect(response.data.length).toBe(3)
+            expect(response.data.map(a => a.name)).toEqual(["Fifteen", "Seven", "Six"])// Order
+        })
+      })
+
     })
-    
-  })
-  describe('The "delete" method.', () => {
-    it('should delete a document successfully (soft delete)', async () => {
-      const id = getStringId()
-      const response = await test.delete(id)
-      expect(response.message).toBe('Test deleted successfully')
+    describe('Update method', () => {
+        it('should update an element', async() => {
+            const data ={name: 'Name of user'}
+            const response = await test.update(store.getStringId(), data)
+            expect(response.results).toEqual({
+                id: expect.any(String),
+                ...help.dataUpdate 
+            })
+        })
     })
-    it('should throw an error if document do not exist', async () => {
-      const id = getStringId()
-      try {
-        await test.delete(id)
-      } catch (error: unknown) {
-        if (
-          typeof error === 'object' &&
-          error !== null &&
-          'status' in error &&
-          'message' in error
-        ) {
-          expect(error).toBeInstanceOf(Error)
-          expect((error as { status: number }).status).toBe(404)
-          expect((error as { message: string }).message).toBe('Test not found')
-        } else {
-          throw error
-        }
-      }
+    describe('Delete method', () => {
+        it('should deleted an element', async() => { 
+            const response = await test.delete(store.getStringId())
+            expect(response.message).toBe('user@email.com deleted successfully')
+        })
     })
-  })
 })
 EOL
 # Crear testHelp.help.ts
 cat > "$PROJECT_DIR/src/Shared/Repositories/testHelpers/testHelp.help.ts" <<EOL
-import { Types } from 'mongoose'
-import { ITest } from '../../../../test/testHelpers/modelTest.help.js'
-
-export type Info = Pick<ITest, '_id' | 'title' | 'count' | 'picture' | 'enabled'> & {
-  _id: Types.ObjectId }
-// { _id:Types.ObjectId, title: string, count: number, picture: string, enabled: boolean}
-
-export interface ParsedInfo {
-  id: string
-  title: string
-  count: number
-  picture: string
-  enabled: boolean
+import {User} from '../../../Configs/database.js'
+export interface IUserTestSeq {
+    id: string
+    email: string
+    password: string
+    nickname?: string | null
+    name: string 
+    picture?: string | null
+    enabled: boolean
 }
+export interface CreateUserInput {
+    email: string
+    password: string
+    nickname?: string | null
+    name?: string |null
+    picture?: string | null
+    enabled: boolean
+}
+export type UpdateUserInput = Partial<CreateUserInput>
 
-export const infoClean = (data: Info): ParsedInfo => {
+export const parser = (u: InstanceType<typeof User>): IUserTestSeq => {
+  const raw = u.get() // u.get() da un objeto plano con todos los atributos
   return {
-    id: data._id.toString(),
-    title: data.title,
-    count: data.count,
-    picture: data.picture,
-    enabled: data.enabled
+    id: raw.id,
+    email: raw.email,
+    password: raw.password,
+    nickname: raw.nickname,
+    name: raw.name,
+    picture: raw.picture,
+    enabled: raw.enabled
   }
 }
-
-export const resultParsedCreate: ParsedInfo = {
-  id: expect.any(String) as string,
-  title: 'page',
-  count: 5,
-  picture: 'https//pepe.com',
+export const dataCreate = {
+  email: 'user@email.com',
+  password: '123456',
+  nickname: 'userTest',
+  name: 'user',
+  picture: 'https://picsum.photos/200?random=16',
+}
+export const dataUpdate: UpdateUserInput = {
+  email: 'user@email.com',
+  password: '123456',
+  nickname: 'userTest',
+  name: 'Name of user',
+  picture: 'https://picsum.photos/200?random=16',
   enabled: true
 }
 
-export const newData: Omit<ParsedInfo, 'id'> = {
-  title: 'page',
-  count: 5,
-  picture: 'https://donJose.com',
-  enabled: true
-}
 
-export const responseNewData: ParsedInfo = {
-  id: expect.any(String) as string,
-  title: 'page',
-  count: 5,
-  picture: 'https://donJose.com',
-  enabled: true
+//*--------------------------------------------------
+//?          UserSeed
+//*------------------------------------------------
+export const createSeedRandomElements = async(model: any, seed:unknown[]) =>{
+  try {
+    if(!seed || seed.length===0)throw new Error('No data')
+      await model.bulkCreate(seed)
+  } catch (error) {
+    console.error('Error createSeedRandomElements: ', error)
+  }
 }
-EOL
-# Crear testHelp.help.ts
-cat > "$PROJECT_DIR/src/Shared/Repositories/testHelpers/seeds.help.ts" <<EOL
-export interface Seeds {
-  title: string
-  count: number
-  picture: string
-  enabled: boolean
-}
-
-export const testSeeds: Seeds[] = [
-  { title: 'donJose', count: 5, picture: 'https://donJose.com', enabled: true },
-  { title: 'about', count: 2, picture: 'https://about.com/img1', enabled: true },
-  { title: 'contact', count: 7, picture: 'https://contact.com/img2', enabled: false },
-  { title: 'services', count: 1, picture: 'https://services.com/img3', enabled: true },
-  { title: 'portfolio', count: 9, picture: 'https://portfolio.com/img4', enabled: false },
-  { title: 'home', count: 3, picture: 'https://home.com/img5', enabled: true },
-  { title: 'products', count: 12, picture: 'https://products.com/img6', enabled: true },
-  { title: 'team', count: 6, picture: 'https://team.com/img7', enabled: false },
-  { title: 'careers', count: 0, picture: 'https://careers.com/img8', enabled: true },
-  { title: 'blog', count: 4, picture: 'https://blog.com/img9', enabled: true },
-  { title: 'faq', count: 10, picture: 'https://faq.com/img10', enabled: false },
-  { title: 'support', count: 8, picture: 'https://support.com/img11', enabled: true },
-  { title: 'terms', count: 15, picture: 'https://terms.com/img12', enabled: false },
-  { title: 'privacy', count: 11, picture: 'https://privacy.com/img13', enabled: true },
-  { title: 'login', count: 14, picture: 'https://login.com/img14', enabled: true },
-  { title: 'register', count: 13, picture: 'https://register.com/img15', enabled: false },
-  { title: 'dashboard', count: 17, picture: 'https://dashboard.com/img16', enabled: true },
-  { title: 'settings', count: 16, picture: 'https://settings.com/img17', enabled: true },
-  { title: 'notifications', count: 18, picture: 'https://notifications.com/img18', enabled: false },
-  { title: 'messages', count: 19, picture: 'https://messages.com/img19', enabled: true },
-  { title: 'billing', count: 21, picture: 'https://billing.com/img20', enabled: true },
-  { title: 'reports', count: 22, picture: 'https://reports.com/img21', enabled: false },
-  { title: 'analytics', count: 23, picture: 'https://analytics.com/img22', enabled: true },
-  { title: 'integration', count: 24, picture: 'https://integration.com/img23', enabled: true },
-  { title: 'feedback', count: 20, picture: 'https://feedback.com/img24', enabled: false }
-]
+export const usersSeed = [
+  {
+    email: "user1@email.com",
+    password: "123456",
+    nickname: "userTest1",
+    name: "One",
+    picture: "https://picsum.photos/200?random=1",
+    enabled: true
+  },
+  {
+    email: "user2@email.com",
+    password: "123456",
+    nickname: "userTest2",
+    name: "Two",
+    picture: "https://picsum.photos/200?random=2",
+    enabled: true
+  },
+  {
+    email: "user3@email.com",
+    password: "123456",
+    nickname: "userTest3",
+    name: "Three",
+    picture: "https://picsum.photos/200?random=3",
+    enabled: true
+  },
+  {
+    email: "user4@email.com",
+    password: "123456",
+    nickname: "userTest4",
+    name: "Four",
+    picture: "https://picsum.photos/200?random=4",
+    enabled: true
+  },
+  {
+    email: "user5@email.com",
+    password: "123456",
+    nickname: "userTest5",
+    name: "Five",
+    picture: "https://picsum.photos/200?random=5",
+    enabled: true
+  },
+  {
+    email: "user6@email.com",
+    password: "123456",
+    nickname: "userTest6",
+    name: "Six",
+    picture: "https://picsum.photos/200?random=6",
+    enabled: false
+  },
+  {
+    email: "user7@email.com",
+    password: "123456",
+    nickname: "userTest7",
+    name: "Seven",
+    picture: "https://picsum.photos/200?random=7",
+    enabled: false
+  },
+  {
+    email: "user8@email.com",
+    password: "123456",
+    nickname: "userTest8",
+    name: "Eight",
+    picture: "https://picsum.photos/200?random=8",
+    enabled: true
+  },
+  {
+    email: "user9@email.com",
+    password: "123456",
+    nickname: "userTest9",
+    name: "Nine",
+    picture: "https://picsum.photos/200?random=9",
+    enabled: true
+  },
+  {
+    email: "user10@email.com",
+    password: "123456",
+    nickname: "userTest10",
+    name: "Ten",
+    picture: "https://picsum.photos/200?random=10",
+    enabled: true
+  },
+  {
+    email: "user11@email.com",
+    password: "123456",
+    nickname: "userTest11",
+    name: "Eleven",
+    picture: "https://picsum.photos/200?random=11",
+    enabled: true
+  },
+  {
+    email: "user12@email.com",
+    password: "123456",
+    nickname: "userTest12",
+    name: "Twelve",
+    picture: "https://picsum.photos/200?random=12",
+    enabled: true
+  },
+  {
+    email: "user13@email.com",
+    password: "123456",
+    nickname: "userTest13",
+    name: "Thirteen",
+    picture: "https://picsum.photos/200?random=13",
+    enabled: true
+  },
+  {
+    email: "user14@email.com",
+    password: "123456",
+    nickname: "userTest14",
+    name: "Fourteen",
+    picture: "https://picsum.photos/200?random=14",
+    enabled: true
+  },
+  {
+    email: "user15@email.com",
+    password: "123456",
+    nickname: "userTest15",
+    name: "Fifteen",
+    picture: "https://picsum.photos/200?random=15",
+    enabled: false
+  }
+];
 EOL

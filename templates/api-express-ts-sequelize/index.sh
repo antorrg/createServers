@@ -7,7 +7,6 @@ cat > "$PROJECT_DIR/index.ts" <<EOL
 import app from './src/app.js'
 import { startUp } from './src/Configs/database.js'
 import envConfig from './src/Configs/envConfig.js'
-import { userSeed } from './src/Features/userSeed/userSeed.js'
 
 app.listen(envConfig.Port, async () => {
   try {

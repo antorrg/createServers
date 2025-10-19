@@ -1,7 +1,8 @@
 #!/bin/bash
 
 PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
-
+#Shared/Swagger/schemas/tools,Shared/Swagger/schemas/components
+mkdir -p $PROJECT_DIR/src/Shared/Swagger/{schemas,schemas/tools}
 # Crear archivo para creacion guiada de jsdoc
 cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/tools/generateSchema.ts" <<EOL
 import fs from 'fs';

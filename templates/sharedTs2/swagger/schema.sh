@@ -1,6 +1,7 @@
 #!/bin/bash
 
 PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
+mkdir -p $PROJECT_DIR/src/Shared/Swagger/schemas
 
 cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/user.jsdoc.ts" <<EOL
 /**

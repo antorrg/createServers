@@ -23,7 +23,7 @@ export interface JwtPayload {
 export class Auth {
   static generateToken (user: { id: string, email: string, role: number,}, expiresIn?:string| number ): string {
     const intData = disguiseRole(user.role, 5)
-    const jwtExpiresIn: string | number = expiresIn ?? Math.ceil(envConfig.ExpiresIn * 60 * 60)
+    const jwtExpiresIn: string | number = expiresIn ?? Math.ceil(Number(envConfig.ExpiresIn) * 60 * 60)
     const secret: Secret = envConfig.Secret;
     return pkg.sign(
       { userId: user.id, email: user.email, internalData: intData },
@@ -288,22 +288,22 @@ import {Auth} from '../auth.js'
 const serverTest = express()
 serverTest.use(express.json())
 
-serverTest.post('/', Auth.verifyToken, eh.catchController(async(req: Request, res: Response,):Promise<void> => {
+serverTest.post('/', Auth.verifyToken, async(req: Request, res: Response,):Promise<void> => {
     const data = req.body
     const decoResponse =  (req as any).userInfo
     res.status(200).json({ success: true, message: 'Passed middleware', data:data, userInfo: decoResponse })
-}))
+})
 
-serverTest.post('/roleUser', Auth.verifyToken, Auth.checkRole([1]), eh.catchController(async(req: Request, res: Response,):Promise<void> => {
+serverTest.post('/roleUser', Auth.verifyToken, Auth.checkRole([1]), async(req: Request, res: Response,):Promise<void> => {
     const data = req.body
     const decoResponse =  (req as any).userInfo
     res.status(200).json({ success: true, message: 'Passed middleware', data:data, userInfo: decoResponse  })
-}))
+})
 
-serverTest.get('/emailVerify', Auth.verifyEmailToken, eh.catchController(async(req: Request, res: Response,):Promise<void> => {
+serverTest.get('/emailVerify', Auth.verifyEmailToken, async(req: Request, res: Response,):Promise<void> => {
     const decoResponse =  (req as any).userInfo
     res.status(200).json({ success: true, message: 'Passed middleware', data:null, userInfo: decoResponse })
-}))
+})
 
 serverTest.use((err: Error & { status?: number }, req: Request, res: Response, next: NextFunction) => {
   const status = err.status || 500

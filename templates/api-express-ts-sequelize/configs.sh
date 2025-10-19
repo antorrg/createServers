@@ -5,101 +5,112 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 # Crear el archivo de configuración dotenv
 cat > "$PROJECT_DIR/src/Configs/envConfig.ts" <<EOL
 import dotenv from 'dotenv'
-// Configuración de archivos .env según ambiente
-const configEnv: Record<string, string> = {
+
+const ENV_FILE = {
+  production: '.env.production',
   development: '.env.development',
-  test: '.env.test',
-  production: '.env'
+  test: '.env.test'
+} as const
+type Environment = keyof typeof ENV_FILE
+const NODE_ENV = (process.env.NODE_ENV as Environment) ?? 'production'
+
+dotenv.config({ path: ENV_FILE[NODE_ENV] })
+
+
+const getNumberEnv = (key: string, defaultValue: number): number => {
+
+  const parsed = Number(process.env[key])
+  return isNaN(parsed) ? defaultValue : parsed
 }
-const envFile = configEnv[process.env.NODE_ENV || 'production']
-// Determinamos el ambiente y archivo .env a usar
-const env = process.env.NODE_ENV || 'production'
-
-// Cargamos las variables de entorno del archivo correspondiente
-dotenv.config({ path: envFile })
-
-// Interface para las variables de entorno
-interface EnvVariables {
-  PORT: number
-  NODE_ENV: string
-  URI_DB: string
-  JWT_EXPIRES_IN: number
-  JWT_SECRET: string
-  USER_IMG: string
-
-  // Aquí puedes añadir más variables que necesites
+const getStringEnv = (key: string, defaultValue: string): string => {
+  return process.env[key] ?? defaultValue
 }
-
-// Función para obtener y validar las variables de entorno
-function getEnvConfig (): EnvVariables {
-  return {
-    PORT: parseInt(process.env.PORT || '3000', 10),
-    NODE_ENV: process.env.NODE_ENV || 'production',
-    URI_DB: process.env.URI_DB || '',
-    JWT_EXPIRES_IN: parseInt(process.env.JWT_EXPIRES_IN || '1', 10),
-    JWT_SECRET: process.env.JWT_SECRET || '',
-    USER_IMG: process.env.USER_IMG || ''
-  }
-}
-
-// Obtenemos el estado del ambiente
-const status: string = Object.keys(configEnv).find(
-  (key) => configEnv[key] === envFile
-) || 'production'
-
-// Creamos la configuración final
 const envConfig = {
-  Port: getEnvConfig().PORT,
-  Status: status,
-  UriDb: getEnvConfig().URI_DB,
-  ExpiresIn: getEnvConfig().JWT_EXPIRES_IN,
-  Secret: getEnvConfig().JWT_SECRET,
-  UserImg: getEnvConfig().USER_IMG
-
+  Port: getNumberEnv('PORT', 3000),
+  Status: NODE_ENV,
+  UserImg: getStringEnv('USER_IMG', ''),
+  DatabaseUrl: getStringEnv('DATABASE_URL', ''),
+  Secret: getStringEnv('JWT_SECRET',''),
+  ExpiresIn: getStringEnv('JWT_EXPIRES_IN', '1')
 }
-
 export default envConfig
 EOL
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 # Crear archivo de configuracion de base de datos Mongodb
 cat > "$PROJECT_DIR/src/Configs/database.ts" <<EOL
-import { connect } from 'mongoose'
+import { Sequelize } from 'sequelize'
 import envConfig from './envConfig.js'
+import models from '../../Models/index.js'
 
-// const DB_URI= \`mongodb://\${onlyOne}\`
+const sequelize = new Sequelize(envConfig.DatabaseUrl, {
+  logging: false,
+  native: false
+})
 
-const connectDB = async () => {
+Object.values(models).forEach((modelDef) => {
+  modelDef(sequelize)
+})
+
+const { User } = sequelize.models
+// Relations here below:
+
+// ------------------------
+//    Initilization database:
+// -------------------------
+async function startUp (syncDb: boolean = false, rewrite: boolean = false) {
   try {
-    await connect(envConfig.UriDb)
-    console.log('DB conectada exitosamente ✅')
+    await sequelize.authenticate()
+    if (envConfig.Status !== 'production' && syncDb) {
+      try {
+        await sequelize.sync({ force: rewrite })
+        console.log(\`🧪 Synced database: "force \${rewrite}"\`)
+      } catch (error) {
+        console.error('❗Error syncing database', error)
+      }
+    }
+    console.log('🟢​ Database postgreSQL initialized successfully!!')
   } catch (error) {
-    console.error(error + ' algo malo pasó 🔴')
+    console.error('❌ Error conecting database!', error)
   }
 }
+const closeDatabase = async () => {
+  await sequelize.close()
+  console.log('🛑 Database disconnect')
+}
 
-export default connectDB
+export { startUp, closeDatabase, sequelize, User }
 EOL
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Crear archivo de test para entorno y db
 cat > "$PROJECT_DIR/src/Configs/EnvDb.test.ts" <<EOL
+import {describe, it, expect, beforeAll, afterAll } from 'vitest'
 import envConfig from './envConfig.js'
+import {User, startUp, closeDatabase} from './database.js'
 
-describe('Iniciando tests, probando variables de entorno del archivo "envConfig.ts" y existencia de tablas en DB.', () => {
-  it('Deberia retornar el estado y la variable de base de datos correcta', () => {
+describe('Environment variables', () => {
+  it('should return the correct environment status and database variable', () => {
     const formatEnvInfo = \`Servidor corriendo en: \${envConfig.Status}\n\` +
-                   \`Base de datos de testing: \${envConfig.UriDb}\`
+                   \`Base de datos de testing: \${envConfig.DatabaseUrl}\`
     expect(formatEnvInfo).toBe('Servidor corriendo en: test\n' +
-        'Base de datos de testing: mongodb://127.0.0.1:27017/herethenameofdb')
+        'Base de datos de testing: postgres://postgres:password@localhost:5432/testing')
   })
-
-  // it('Deberia responder a una consulta en la base de datos con un arreglo vacío', async()=>{
-  //     const users = await DbUser.find()
-  //     const cars = await DBCar.find()
-  //     expect(users).toEqual([]);
-  //     expect(cars).toEqual([])
-
-  // });
 })
+describe('Database existence', () => {
+  beforeAll(async()=>{
+    await startUp(true, true)
+  })
+  afterAll(async()=>{
+    await closeDatabase()
+  })
+   it('should query tables and return an empty array', async() => { 
+      const models = [User];
+   for (const model of models) {
+     const records = await model.findAll();
+     expect(Array.isArray(records)).toBe(true);
+     expect(records.length).toBe(0);
+   }
+   })
+ })
 EOL

@@ -2,6 +2,7 @@
 
 PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 
+mkdir -p $PROJECT_DIR/src/Shared/Swagger/{schemas,schemas/tools}
 # Crear archivo generadpr de json para jsdoc
 cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/tools/generateComponentSchema.ts" <<EOL
 import inquirer from 'inquirer';

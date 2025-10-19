@@ -46,7 +46,7 @@ export class User
   declare enabled: boolean
 }
 
-// Función que define el modelo (igual que tenías, pero tipada)
+// Función que define el modelo 
 export default (sequelize: Sequelize) => {
   User.init(
     {

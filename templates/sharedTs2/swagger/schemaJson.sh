@@ -2,6 +2,7 @@
 
 PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 
+mkdir -p $PROJECT_DIR/src/Shared/Swagger/schemas/components
 # Crear archivo json para user
 cat > "$PROJECT_DIR/src/Shared/Swagger/schemas/components/user.schema.json" <<EOL
 {

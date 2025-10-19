@@ -8,7 +8,7 @@ SHAREDTS_DIR="$SCRIPT_DIR/../sharedTs2"
 # Crear la estructura del proyecto
 mkdir -p "$PROJECT_DIR"
 
-mkdir -p $PROJECT_DIR/src/{Configs,@types,Shared,Shared/Interfaces,Shared/Controllers,Shared/Services,Shared/Repositories,Shared/Repositories/testHelpers,Shared/Models,Shared/Swagger,Shared/Swagger/schemas,Shared/Swagger/schemas/tools,Shared/Swagger/schemas/components,Features,Features/user,Features/product,Features/user/testHelpers,Features/userSeed}
+mkdir -p $PROJECT_DIR/src/{Configs,@types,Shared}
 mkdir -p $PROJECT_DIR/test/testHelpers
 
 source "$SHAREDTS_DIR/auth.sh" "$PROYECTO_VALIDO"
@@ -19,7 +19,7 @@ source "$SCRIPT_DIR/environment.sh" "$PROYECTO_VALIDO"
 source "$SHAREDTS_DIR/express.sh" "$PROYECTO_VALIDO"
 source "$SCRIPT_DIR/index.sh" "$PROYECTO_VALIDO"
 source "$SCRIPT_DIR/feature.sh" "$PROYECTO_VALIDO"
-source "$SCRIPT_DIR/jest.sh" "$PROYECTO_VALIDO"
+source "$SCRIPT_DIR/vitest.sh" "$PROYECTO_VALIDO"
 source "$SHAREDTS_DIR/commonTest.sh" "$PROYECTO_VALIDO"
 source "$SCRIPT_DIR/models.sh" "$PROYECTO_VALIDO"
 source "$SCRIPT_DIR/repository.sh" "$PROYECTO_VALIDO"
