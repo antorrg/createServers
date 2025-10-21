@@ -18,7 +18,7 @@ En esta plantilla encontrará ambos paradigmas funcionando codo a codo. A partir
 
 ### Instalaciones:
 
-La app viene con las instalaciones básicas para comenzar a trabajar con Sequelize y una base de datos PostgreSQl. Las variables de entorno vienen ya con un usuario por defecto (random) y una base de datos ficticia, usted deberia cambiar esto por su propia base de datos apropiada para cada entorno.
+La app viene con las instalaciones básicas para comenzar a trabajar con typeOrm y una base de datos PostgreSQl. Las variables de entorno vienen ya con un usuario por defecto (random) y una base de datos ficticia, usted deberia cambiar esto por su propia base de datos apropiada para cada entorno.
 
 ### Scripts disponibles:
 

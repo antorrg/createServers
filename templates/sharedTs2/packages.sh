@@ -59,6 +59,8 @@ cat > "$PROJECT_DIR/tsconfig.json" <<EOL
 "noEmit": false,
 "outDir": "dist",
 "isolatedModules": true,
+"experimentalDecorators": true,         // NECESARIO para TypeORM y validadores
+"emitDecoratorMetadata": true,          // NECESARIO para reflejar tipos en decoradores
 "allowSyntheticDefaultImports": true,
 "esModuleInterop": true,
 "forceConsistentCasingInFileNames": true,

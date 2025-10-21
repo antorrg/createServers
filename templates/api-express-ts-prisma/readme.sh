@@ -18,7 +18,9 @@ En esta plantilla encontrará ambos paradigmas funcionando codo a codo. A partir
 
 ### Instalaciones:
 
-La app viene con las instalaciones básicas para comenzar a trabajar con Sequelize y una base de datos PostgreSQl. Las variables de entorno vienen ya con un usuario por defecto (random) y una base de datos ficticia, usted deberia cambiar esto por su propia base de datos apropiada para cada entorno.
+La app viene con las instalaciones básicas para comenzar a trabajar con prisma y una base de datos PostgreSQl. Las variables de entorno vienen ya con un usuario por defecto (random) y una base de datos ficticia, usted deberia cambiar esto por su propia base de datos apropiada para cada entorno.
+
+- Importante: Es necesario ejecutar \` >> npx prisma migrate dev\` antes de probar la db, para ello debera procurar que el archivo \`.env\` que se encuentra en la raíz del proyecto sea el correspondiente a cada entorno. El mismo se utilizará solo en las migraciones y en prisma generate, luego puede ser desactivado por cambiar la extension a .md.
 
 ### Scripts disponibles:
 

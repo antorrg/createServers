@@ -95,8 +95,9 @@ esac
 else
 echo "Seleccione el tipo de API:"
 echo "1) Express.ts con Mongoose"
-echo "2) Express.ts con TypeOrm (Postgres)"
-echo "4) Express.ts con Sequelize (Postgres)"
+echo "2) Express.ts con Sequelize (Postgres)"
+echo "3) Express.ts con TypeOrm (Postgres)"
+echo "4) Express.ts con Prisma (Postgres)"
 echo "5) Otro (próximamente)"
 read opcion
 
@@ -104,9 +105,9 @@ TEMPLATES_DIR="./templates"  # Ruta a los templates
 
 case $opcion in
     1) source "$TEMPLATES_DIR/api-express-ts-mongoose/main.sh" "$PROYECTO_VALIDO" ;;
-    2) source "$TEMPLATES_DIR/api-express-type-typeOrm/main.sh" "$PROYECTO_VALIDO" ;;
-    3) source "$TEMPLATES_DIR/api-express-type-typeOrm/main.sh" "$PROYECTO_VALIDO" ;;
-    4) source "$TEMPLATES_DIR/api-express-ts-sequelize/main.sh" "$PROYECTO_VALIDO" ;;
+    2) source "$TEMPLATES_DIR/api-express-ts-sequelize/main.sh" "$PROYECTO_VALIDO" ;;
+    3) source "$TEMPLATES_DIR/api-express-ts-typeOrm/main.sh" "$PROYECTO_VALIDO" ;;
+    4) source "$TEMPLATES_DIR/api-express-ts-prisma/main.sh" "$PROYECTO_VALIDO" ;;
     5) echo "Opción aún no implementada." ;;
     *) echo "Opción no válida." ;;
   esac

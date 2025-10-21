@@ -41,7 +41,7 @@ cd $PROJECT_DIR
 
 # Instalar dependencias
 echo "Instalando dependencias:..."
-npm install bcrypt cors cross-env dotenv express jsonwebtoken sequelize pg pg-hstore morgan req-valid-express
+npm install bcrypt cors cross-env dotenv express jsonwebtoken prisma @prisma/client pg morgan req-valid-express
 echo "Instalando dependencias de desarrollo, aguarde un momento..."
 npm install -D typescript tsx @types/bcrypt @types/cors @types/dotenv @types/express @types/inquirer @types/jsonwebtoken @types/mongoose @types/morgan @types/supertest @types/swagger-jsdoc @types/swagger-ui-express inquirer vitest supertest swagger-jsdoc swagger-ui-express @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint eslint-config-standard-with-typescript
 echo "¡Tu aplicación Express está lista! 🚀"
