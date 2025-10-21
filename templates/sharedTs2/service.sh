@@ -11,7 +11,7 @@ import { throwError } from '../../Configs/errorHandlers.js'
 import { type IBaseRepository, type IRepositoryResponse, type IPaginatedOptions, type IPaginatedResults, type IExternalImageDeleteService } from '../Interfaces/base.interface.js'
 
 export class BaseService<TDTO, TCreate, TUpdate> {
-  # protected repository: IBaseRepository<TDTO, TCreate, TUpdate>
+  protected repository: IBaseRepository<TDTO, TCreate, TUpdate>
   protected imageDeleteService: IExternalImageDeleteService<any>
   protected useImage: boolean
   protected nameImage: keyof TDTO // & keyof TUpdate;

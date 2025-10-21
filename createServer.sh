@@ -104,7 +104,7 @@ read opcion
 TEMPLATES_DIR="./templates"  # Ruta a los templates
 
 case $opcion in
-    1) source "$TEMPLATES_DIR/api-express-ts-mongoose/main.sh" "$PROYECTO_VALIDO" ;;
+    1) source "$TEMPLATES_DIR/api-express-ts-mongoDb/main.sh" "$PROYECTO_VALIDO" ;;
     2) source "$TEMPLATES_DIR/api-express-ts-sequelize/main.sh" "$PROYECTO_VALIDO" ;;
     3) source "$TEMPLATES_DIR/api-express-ts-typeOrm/main.sh" "$PROYECTO_VALIDO" ;;
     4) source "$TEMPLATES_DIR/api-express-ts-prisma/main.sh" "$PROYECTO_VALIDO" ;;

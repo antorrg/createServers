@@ -6,13 +6,15 @@ mkdir -p $PROJECT_DIR/src/Features/user
 mkdir -p $PROJECT_DIR/src/Features/product
 # Crear archivo UserService.ts
 cat > "$PROJECT_DIR/src/Features/user/UserMappers.ts" <<EOL
-import { type User } from '../../Configs/database.js'
-export interface IUserSeq {
+import { type HydratedDocument } from "mongoose";
+import {IMongooseUser} from '../../../Schemas/user.model.js'
+
+export interface IUser {
   id: string
   email: string
   password?: string
   nickname?: string | null
-  name: string
+  name?: string
   picture?: string | null
   enabled: boolean
 }
@@ -26,15 +28,13 @@ export interface CreateUserInput {
 }
 export type UpdateUserInput = Partial<CreateUserInput>
 
-export const userParser = (
-  u: InstanceType<typeof User>
-): IUserSeq => {
-  const raw = u.get({ plain: true })
+export const userParser = (u: HydratedDocument<IMongooseUser>): IUser => {
+   const raw = typeof u.toObject === 'function'? u.toObject() : u
   return {
-    id: raw.id,
+    id: raw._id.toString(),
     email: raw.email,
     nickname: raw.nickname,
-    name: raw.name,
+    name: raw.name ?? '',
     picture: raw.picture,
     enabled: raw.enabled
   }
@@ -120,7 +120,7 @@ EOL
 # Crear el archivo user.route.ts
 cat > "$PROJECT_DIR/src/Features/user/user.route.ts" <<EOL
 import { Router } from 'express'
-import { User } from '../../Configs/database.js'
+import User from '../../../Schemas/user.model.js'
 import { BaseRepository } from '../../Shared/Repositories/BaseRepository.js'
 import { BaseService } from '../../Shared/Services/BaseService.js'
 import ImgsService from '../../Shared/Services/ImgsService.js'
@@ -130,6 +130,7 @@ import { Validator } from 'req-valid-express'
 import { Auth } from '../../Shared/Auth/auth.js'
 import { create, update } from './schemas.js'
 import { UserMidd } from './UserMidd.js'
+
 
 const userRepository = new BaseRepository(User, userParser, 'User', 'email')
 export const userService = new BaseService(userRepository, ImgsService, false, 'picture')
@@ -150,7 +151,7 @@ userRouter.get(
 )
 userRouter.get(
   '/:id',
-  Validator.paramId('id', Validator.ValidReg.UUIDv4),
+  Validator.paramId('id', Validator.ValidReg.OBJECT_ID),
   user.getById
 )
 
@@ -173,7 +174,7 @@ userRouter.post(
 
 userRouter.put(
   '/:id',
-  Validator.paramId('id', Validator.ValidReg.UUIDv4),
+  Validator.paramId('id', Validator.ValidReg.OBJECT_ID),
   Validator.validateBody(update),
   user.update
 )
@@ -181,7 +182,7 @@ userRouter.put(
 userRouter.delete(
   '/:id',
   Auth.verifyToken,
-  Validator.paramId('id', Validator.ValidReg.UUIDv4),
+  Validator.paramId('id', Validator.ValidReg.OBJECT_ID),
   user.delete
 )
 

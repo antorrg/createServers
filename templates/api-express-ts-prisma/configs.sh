@@ -113,7 +113,7 @@ describe('EnvDb test', () => {
     );
     })
   })
-  describe('Sequelize database', () => {
+  describe('Database existence', () => {
     it('should query tables and return an empty array', async() => { 
        const models = [User];
     for (const model of models) {

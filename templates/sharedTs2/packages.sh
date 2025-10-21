@@ -78,6 +78,7 @@ cat > "$PROJECT_DIR/tsconfig.json" <<EOL
     "dist",
     "data", 
     "test",
+    "src/Shared/Swagger/**/*",
     "**/*.test.ts",
     "**/*.help.ts"
   ]

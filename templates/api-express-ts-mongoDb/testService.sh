@@ -6,7 +6,8 @@ PROJECT_DIR="$(dirname "$(pwd)")/$PROYECTO_VALIDO"
 # Crear el  test para el Servicio 
 cat > "$PROJECT_DIR/src/Shared/Services/BaseService.test.ts" <<EOL
 import { beforeAll, afterAll, describe, it, expect } from 'vitest'
-import { startUp, closeDatabase, User } from '../../Configs/database.ts'
+import { startUp, closeDatabase} from '../../Configs/database.ts'
+import User from '../../../Schemas/user.model.ts'
 import { BaseRepository } from '../Repositories/BaseRepository.ts'
 import * as help from '../Repositories/testHelpers/testHelp.help.ts'
 import * as store from '../../../test/testHelpers/testStore.help.ts'
@@ -17,7 +18,7 @@ import ImgsService from './ImgsService.ts'
 describe('BaseService unit test', () => {
   let imagesCopied: string[] = []
   beforeAll(async () => {
-    await startUp(true, true)
+    await startUp(true)
     imagesCopied = await prepareTestImages(2)
   })
   afterAll(async () => {
@@ -92,10 +93,10 @@ describe('BaseService unit test', () => {
         expect(response.message).toBe('Total records: 16. Users retrieved successfully')
         expect(response.info).toEqual({ total: 16, page: 1, limit: 10, totalPages: 2 })
         expect(response.data.length).toBe(10)
-        expect(response.data.map(a => a.name)).toEqual(['user', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'])// Order
+        expect(response.data.map(a => a.name)).toEqual([ 'user','One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'])// Order
       })
       it('Should retrieve filtered and sorted elements', async () => {
-        const queryObject = { page: 1, limit: 10, query: { enabled: false }, order: { name: 'ASC' } } as const
+        const queryObject = { page: 1, limit: 10, query: { enabled: false }, order: { name: 1 } } as const
         const response = await test.getWithPages(queryObject)
         expect(response.message).toBe('Total records: 3. Users retrieved successfully')
         expect(response.info).toEqual({ total: 3, page: 1, limit: 10, totalPages: 1 })

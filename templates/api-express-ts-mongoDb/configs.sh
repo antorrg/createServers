@@ -16,9 +16,7 @@ const NODE_ENV = (process.env.NODE_ENV as Environment) ?? 'production'
 
 dotenv.config({ path: ENV_FILE[NODE_ENV] })
 
-
 const getNumberEnv = (key: string, defaultValue: number): number => {
-
   const parsed = Number(process.env[key])
   return isNaN(parsed) ? defaultValue : parsed
 }
@@ -29,9 +27,10 @@ const envConfig = {
   Port: getNumberEnv('PORT', 3000),
   Status: NODE_ENV,
   UserImg: getStringEnv('USER_IMG', ''),
-  DatabaseUrl: getStringEnv('DATABASE_URL', ''),
-  Secret: getStringEnv('JWT_SECRET',''),
-  ExpiresIn: getStringEnv('JWT_EXPIRES_IN', '1')
+  MongoDbUri : getStringEnv('MONGO_DB_URI',''),
+  ExpiresIn: getStringEnv('JWT_EXPIRES_IN', '1'),
+  Secret: getStringEnv('JWT_SECRET', '')
+
 }
 export default envConfig
 EOL
@@ -39,78 +38,85 @@ EOL
 
 # Crear archivo de configuracion de base de datos Mongodb
 cat > "$PROJECT_DIR/src/Configs/database.ts" <<EOL
-import { Sequelize } from 'sequelize'
+import mongoose from 'mongoose'
 import envConfig from './envConfig.js'
-import models from '../../Models/index.js'
 
-const sequelize = new Sequelize(envConfig.DatabaseUrl, {
-  logging: false,
-  native: false
-})
 
-Object.values(models).forEach((modelDef) => {
-  modelDef(sequelize)
-})
+const nameOfDb = (): string => {
+  const url = envConfig.MongoDbUri
+  if (!url) return 'unknown'
+  const parts = url.split('/')
+  const name = parts[parts.length - 1] || 'unknown'
+  if(name.length > 20){
+    return 'mongoDb-cluster'
+  }else{
+  return name}
+}
 
-const { User } = sequelize.models
-// Relations here below:
-
-// ------------------------
-//    Initilization database:
-// -------------------------
-async function startUp (syncDb: boolean = false, rewrite: boolean = false) {
+async function startUp (reset:boolean = false){
   try {
-    await sequelize.authenticate()
-    if (envConfig.Status !== 'production' && syncDb) {
-      try {
-        await sequelize.sync({ force: rewrite })
-        console.log(\`🧪 Synced database: "force \${rewrite}"\`)
-      } catch (error) {
-        console.error('❗Error syncing database', error)
-      }
+    if(reset=== true && envConfig.Status==='test'){
+    console.log(\`🔄 Restarting database "\${nameOfDb()}" for testing...\`)
+        await mongoose.connect(envConfig.MongoDbUri)
+    // Asegurarse de empezar en una BD vacía
+        await mongoose.connection.dropDatabase()
+    console.log('🧪  Database restored successfully')
     }
-    console.log('🟢​ Database postgreSQL initialized successfully!!')
+    await mongoose.connect(envConfig.MongoDbUri)
+    console.log(\`🟢​  Database "\${nameOfDb()}" initialized successfully!!\`)
   } catch (error) {
-    console.error('❌ Error conecting database!', error)
+    console.error(\`❌ Error starting database: \`, error)
   }
 }
-const closeDatabase = async () => {
-  await sequelize.close()
-  console.log('🛑 Database disconnect')
-}
 
-export { startUp, closeDatabase, sequelize, User }
+async function closeDatabase() {
+  try {
+    await mongoose.disconnect()
+    console.log(\`🛑 Database "\${nameOfDb()}" disconnect successfully.\`)
+  } catch (error) {
+    console.error('❌ Error closing database:', error)
+  }
+}
+export {
+    startUp,
+    closeDatabase
+};
 EOL
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Crear archivo de test para entorno y db
 cat > "$PROJECT_DIR/src/Configs/EnvDb.test.ts" <<EOL
 import {describe, it, expect, beforeAll, afterAll } from 'vitest'
-import envConfig from './envConfig.js'
-import {User, startUp, closeDatabase} from './database.js'
+import envConfig from './envConfig.ts'
+import {startUp, closeDatabase} from './database.ts'
+import User from '../../Schemas/user.model.ts'
 
-describe('Environment variables', () => {
-  it('should return the correct environment status and database variable', () => {
-    const formatEnvInfo = \`Servidor corriendo en: \${envConfig.Status}\n\` +
-                   \`Base de datos de testing: \${envConfig.DatabaseUrl}\`
-    expect(formatEnvInfo).toBe('Servidor corriendo en: test\n' +
-        'Base de datos de testing: postgres://postgres:password@localhost:5432/testing')
-  })
-})
-describe('Database existence', () => {
-  beforeAll(async()=>{
-    await startUp(true, true)
+describe('EnvDb test', () => { 
+ beforeAll(async()=>{
+    await startUp(true)
   })
   afterAll(async()=>{
     await closeDatabase()
   })
-   it('should query tables and return an empty array', async() => { 
-      const models = [User];
-   for (const model of models) {
-     const records = await model.findAll();
-     expect(Array.isArray(records)).toBe(true);
-     expect(records.length).toBe(0);
-   }
-   })
- })
+  describe('Environment variables', () => {
+    it('should return the correct environment status and database variable', () => { 
+         const formatEnvInfo =
+      \`Server running in: \${envConfig.Status}\n\` +
+      \`Testing mongoDb database: \${envConfig.MongoDbUri}\`;
+    expect(formatEnvInfo).toBe(
+      "Server running in: test\n" + "Testing mongoDb database: mongodb://127.0.0.1:27017/herethenameofdb"
+    );
+    })
+  })
+  describe('Database existence', () => {
+    it('should query tables and return an empty array', async() => { 
+       const models = [User];
+    for (const model of models) {
+      const records = await model.find();
+      expect(Array.isArray(records)).toBe(true);
+      expect(records.length).toBe(0);
+    }
+    })
+  })
+})
 EOL
